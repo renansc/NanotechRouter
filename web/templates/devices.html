@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center">
+
+<div>
+
+<h2>Dispositivos</h2>
+
+<p class="text-muted mb-0">
+Dispositivos encontrados via DHCP e ARP/Neighbor.
+</p>
+
+</div>
+
+<form
+method="POST"
+action="/devices/discover">
+
+<button
+class="btn btn-success">
+Procurar dispositivos
+</button>
+
+</form>
+
+</div>
+
+
+<div class="card shadow-sm mt-4">
+
+<div class="card-body">
+
+<table class="table table-hover align-middle">
+
+<thead>
+
+<tr>
+
+<th>Estado</th>
+<th>Nome</th>
+<th>IP</th>
+<th>MAC</th>
+<th>Porta</th>
+<th>Origem</th>
+<th>Nome personalizado</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{% for d in data.get("devices",[]) %}
+
+<tr>
+
+<td>
+
+{% if d.online %}
+
+<span class="badge text-bg-success">
+Online
+</span>
+
+{% else %}
+
+<span class="badge text-bg-secondary">
+DHCP
+</span>
+
+{% endif %}
+
+</td>
+
+
+<td>
+
+<strong>
+{{ d.display_name }}
+</strong>
+
+{% if d.hostname and d.custom_name %}
+
+<br>
+
+<small class="text-muted">
+Hostname: {{ d.hostname }}
+</small>
+
+{% endif %}
+
+</td>
+
+
+<td>
+
+<strong>
+{{ d.ip }}
+</strong>
+
+</td>
+
+
+<td>
+
+{% if d.mac %}
+
+<code>
+{{ d.mac }}
+</code>
+
+{% else %}
+
+-
+
+{% endif %}
+
+</td>
+
+
+<td>
+
+{% if d.port_alias %}
+
+<strong>
+{{ d.port_alias }}
+</strong>
+
+<br>
+
+<small class="text-muted">
+{{ d.interface }}
+</small>
+
+{% else %}
+
+{{ d.interface }}
+
+{% endif %}
+
+</td>
+
+
+<td>
+
+{% if d.source == "DHCP + ARP" %}
+
+<span class="badge text-bg-success">
+DHCP + ARP
+</span>
+
+{% elif d.source == "DHCP" %}
+
+<span class="badge text-bg-primary">
+DHCP
+</span>
+
+{% else %}
+
+<span class="badge text-bg-warning">
+ARP
+</span>
+
+{% endif %}
+
+</td>
+
+
+<td>
+
+{% if d.mac %}
+
+<form
+method="POST"
+action="/devices/name"
+class="d-flex gap-2">
+
+<input
+type="hidden"
+name="mac"
+value="{{ d.mac }}">
+
+<input
+class="form-control form-control-sm"
+name="name"
+placeholder="Ex.: Roteador Wi-Fi"
+value="{{ d.custom_name }}">
+
+<button
+class="btn btn-sm btn-outline-primary">
+Salvar
+</button>
+
+</form>
+
+{% else %}
+
+-
+
+{% endif %}
+
+</td>
+
+</tr>
+
+{% else %}
+
+<tr>
+
+<td
+colspan="7"
+class="text-center">
+
+Nenhum dispositivo encontrado.
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+
+<div class="alert alert-info mt-3">
+
+<strong>DHCP</strong>:
+o dispositivo recebeu endereço do NanotechRouter.
+
+<br>
+
+<strong>ARP</strong>:
+o dispositivo foi observado diretamente na rede,
+mesmo que não tenha recebido DHCP deste servidor.
+
+</div>
+
+{% endblock %}

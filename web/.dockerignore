@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.backup-*
+templates.backup-*/
+.env
+.env.*
+*.env
+*.pem
+*.key

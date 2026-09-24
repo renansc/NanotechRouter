@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+content="width=device-width,initial-scale=1">
+
+<title>NanotechRouter</title>
+
+<link
+href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+rel="stylesheet">
+
+<style>
+
+body {
+    background:#f4f6f9;
+}
+
+.sidebar {
+    position:fixed;
+    width:240px;
+    height:100vh;
+    background:#212529;
+}
+
+.logo {
+    padding:22px;
+    font-size:20px;
+    font-weight:bold;
+    color:white;
+}
+
+.sidebar a {
+    display:block;
+    color:#ccc;
+    padding:12px 22px;
+    text-decoration:none;
+}
+
+.sidebar a:hover {
+    background:#343a40;
+    color:white;
+}
+
+.content {
+    margin-left:240px;
+    padding:30px;
+}
+
+.role-WAN {
+    font-weight:bold;
+}
+
+.role-LAN {
+    font-weight:bold;
+}
+
+.card-interface {
+    margin-bottom:20px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="sidebar">
+
+<div class="logo">
+NanotechRouter
+</div>
+
+<a href="/">
+Dashboard
+</a>
+
+<a href="/interfaces">
+Interfaces / WAN / LAN
+</a>
+
+
+<a href="/ports">
+Portas / Apelidos
+</a>
+
+<a href="/dhcp">
+DHCP / Clientes
+</a>
+
+
+<a href="/devices">
+Dispositivos
+</a>
+
+<a href="#">
+VLANs
+</a>
+
+<a href="#">
+Firewall
+</a>
+
+<a href="/nat">NAT / Port Forward</a>
+
+<a href="/bandwidth">Controle de Banda</a>
+
+<a href="#">
+Rotas
+</a>
+
+<a href="#">
+Sistema
+</a>
+
+</div>
+
+<div class="content">
+
+{% with messages=get_flashed_messages() %}
+
+{% for message in messages %}
+
+<div class="alert alert-info">
+{{ message }}
+</div>
+
+{% endfor %}
+
+{% endwith %}
+
+{% block content %}
+{% endblock %}
+
+</div>
+
+</body>
+
+</html>

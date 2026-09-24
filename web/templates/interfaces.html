@@ -1,0 +1,420 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2>Interfaces / WAN / LAN</h2>
+
+<p>
+Escolha qual interface recebe a Internet e configure
+as demais como redes LAN.
+</p>
+
+{% set cfg=data.get("configuration",{}) %}
+
+{% for i in data.get("interfaces",[]) %}
+
+<div class="card shadow-sm card-interface">
+
+<div class="card-body">
+
+<div class="row">
+
+<div class="col-md-3">
+
+<h4>{{ i.name }}</h4>
+
+<div>
+MAC: {{ i.mac }}
+</div>
+
+<div>
+Tipo: {{ i.type }}
+</div>
+
+</div>
+
+
+<div class="col-md-3">
+
+<div>
+Estado:
+<strong>{{ i.state }}</strong>
+</div>
+
+<div>
+Função:
+<strong>{{ i.role }}</strong>
+</div>
+
+<div>
+Velocidade:
+{% if i.speed %}
+{{ i.speed }} Mbps
+{% else %}
+-
+{% endif %}
+</div>
+
+</div>
+
+
+<div class="col-md-3">
+
+<strong>IP atual</strong>
+
+{% for ip in i.addresses %}
+
+<div>
+{{ ip }}
+</div>
+
+{% else %}
+
+<div>
+Sem IPv4
+</div>
+
+{% endfor %}
+
+</div>
+
+
+<div class="col-md-3">
+
+<strong>Gateway</strong>
+
+<div>
+{{ i.gateway or "-" }}
+</div>
+
+</div>
+
+</div>
+
+<hr>
+
+
+{% if i.role == "WAN" %}
+
+<div class="alert alert-success">
+
+<strong>WAN ATIVA</strong>
+
+<br>
+
+Esta interface foi definida como entrada da Internet.
+
+</div>
+
+
+{% elif i.role == "LAN" %}
+
+{% set lan=cfg.get("lans",{}).get(i.name,{}) %}
+
+<div class="alert alert-primary">
+
+<strong>LAN CONFIGURADA</strong>
+
+<br>
+
+Gateway:
+{{ lan.get("address") }}
+
+<br>
+
+DHCP:
+{% if lan.get("dhcp") %}
+ATIVO
+{% else %}
+DESATIVADO
+{% endif %}
+
+<br>
+
+Internet:
+{% if lan.get("internet") %}
+PERMITIDA
+{% else %}
+BLOQUEADA
+{% endif %}
+
+</div>
+
+
+<form
+method="POST"
+action="/lan/set">
+
+<input
+type="hidden"
+name="interface"
+value="{{ i.name }}">
+
+<div class="row">
+
+<div class="col-md-3">
+
+<label class="form-label">
+IP / Gateway LAN
+</label>
+
+<input
+class="form-control"
+name="address"
+value="{{ lan.get('address','') }}"
+required>
+
+</div>
+
+
+<div class="col-md-2">
+
+<label class="form-label">
+DHCP início
+</label>
+
+<input
+class="form-control"
+name="dhcp_start"
+value="{{ lan.get('dhcp_start','') }}">
+
+</div>
+
+
+<div class="col-md-2">
+
+<label class="form-label">
+DHCP final
+</label>
+
+<input
+class="form-control"
+name="dhcp_end"
+value="{{ lan.get('dhcp_end','') }}">
+
+</div>
+
+
+<div class="col-md-2">
+
+<label class="form-label">
+DNS
+</label>
+
+<input
+class="form-control"
+name="dns"
+value="{{ lan.get('dns','1.1.1.1') }}">
+
+</div>
+
+</div>
+
+
+<div class="mt-3">
+
+<label class="me-4">
+
+<input
+type="checkbox"
+name="dhcp"
+{% if lan.get("dhcp") %}
+checked
+{% endif %}>
+
+Ativar DHCP
+
+</label>
+
+
+<label>
+
+<input
+type="checkbox"
+name="internet"
+{% if lan.get("internet") %}
+checked
+{% endif %}>
+
+Permitir Internet
+
+</label>
+
+</div>
+
+
+<div class="mt-3">
+
+<button class="btn btn-primary">
+Salvar alterações
+</button>
+
+</form>
+
+
+<form
+method="POST"
+action="/lan/delete"
+style="display:inline">
+
+<input
+type="hidden"
+name="interface"
+value="{{ i.name }}">
+
+<button
+class="btn btn-danger"
+onclick="
+return confirm(
+'Remover a configuração LAN desta interface?'
+)
+">
+
+Remover LAN
+
+</button>
+
+</form>
+
+</div>
+
+
+{% else %}
+
+<div class="row">
+
+<div class="col-md-3">
+
+<form
+method="POST"
+action="/wan/set">
+
+<input
+type="hidden"
+name="interface"
+value="{{ i.name }}">
+
+<button
+class="btn btn-warning"
+onclick="
+return confirm(
+'Definir {{ i.name }} como WAN?'
+)
+">
+
+Definir como WAN
+
+</button>
+
+</form>
+
+</div>
+
+
+<div class="col-md-9">
+
+<form
+method="POST"
+action="/lan/set">
+
+<input
+type="hidden"
+name="interface"
+value="{{ i.name }}">
+
+<div class="row">
+
+<div class="col-md-3">
+
+<input
+class="form-control"
+name="address"
+placeholder="192.168.10.1/24"
+required>
+
+</div>
+
+
+<div class="col-md-2">
+
+<input
+class="form-control"
+name="dhcp_start"
+placeholder="192.168.10.50">
+
+</div>
+
+
+<div class="col-md-2">
+
+<input
+class="form-control"
+name="dhcp_end"
+placeholder="192.168.10.250">
+
+</div>
+
+
+<div class="col-md-2">
+
+<input
+class="form-control"
+name="dns"
+value="1.1.1.1">
+
+</div>
+
+
+<div class="col-md-3">
+
+<button class="btn btn-primary">
+Configurar LAN
+</button>
+
+</div>
+
+</div>
+
+
+<div class="mt-2">
+
+<label class="me-4">
+
+<input
+type="checkbox"
+name="dhcp"
+checked>
+
+Ativar DHCP
+
+</label>
+
+
+<label>
+
+<input
+type="checkbox"
+name="internet"
+checked>
+
+Compartilhar Internet
+
+</label>
+
+</div>
+
+</form>
+
+</div>
+
+</div>
+
+{% endif %}
+
+</div>
+
+</div>
+
+{% endfor %}
+
+{% endblock %}

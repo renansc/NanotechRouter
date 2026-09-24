@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2>DHCP / Clientes</h2>
+
+<table class="table table-striped bg-white mt-4">
+
+<thead>
+
+<tr>
+
+<th>Interface</th>
+<th>IP</th>
+<th>MAC</th>
+<th>Hostname</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{% for c in leases.get("leases",[]) %}
+
+<tr>
+
+<td>
+{{ c.interface }}
+</td>
+
+<td>
+{{ c.ip }}
+</td>
+
+<td>
+{{ c.mac }}
+</td>
+
+<td>
+{{ c.hostname }}
+</td>
+
+</tr>
+
+{% else %}
+
+<tr>
+
+<td colspan="4">
+
+Nenhum cliente DHCP encontrado.
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+{% endblock %}

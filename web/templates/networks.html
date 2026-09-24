@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2>Redes e VLANs</h2>
+
+<div class="card mt-4">
+
+<div class="card-body">
+
+<form method="POST"
+action="/network/add">
+
+<div class="row">
+
+<div class="col">
+
+<label>Nome</label>
+
+<input
+class="form-control"
+name="name"
+placeholder="WiFi"
+required>
+
+</div>
+
+<div class="col">
+
+<label>Rede</label>
+
+<input
+class="form-control"
+name="network"
+placeholder="192.168.20.0/24"
+required>
+
+</div>
+
+<div class="col">
+
+<label>Gateway</label>
+
+<input
+class="form-control"
+name="gateway"
+placeholder="192.168.20.1"
+required>
+
+</div>
+
+<div class="col">
+
+<label>VLAN</label>
+
+<input
+class="form-control"
+name="vlan"
+type="number">
+
+</div>
+
+</div>
+
+
+<div class="row mt-3">
+
+<div class="col">
+
+<label>DHCP inicial</label>
+
+<input
+class="form-control"
+name="dhcp_start"
+placeholder="192.168.20.50">
+
+</div>
+
+<div class="col">
+
+<label>DHCP final</label>
+
+<input
+class="form-control"
+name="dhcp_end"
+placeholder="192.168.20.250">
+
+</div>
+
+</div>
+
+<button
+class="btn btn-primary mt-3">
+
+Adicionar rede
+
+</button>
+
+</form>
+
+</div>
+
+</div>
+
+
+<table class="table table-striped mt-4 bg-white">
+
+<tr>
+<th>Nome</th>
+<th>Rede</th>
+<th>Gateway</th>
+<th>VLAN</th>
+<th>DHCP</th>
+<th></th>
+</tr>
+
+{% for n in networks %}
+
+<tr>
+
+<td>{{ n.name }}</td>
+
+<td>{{ n.network }}</td>
+
+<td>{{ n.gateway }}</td>
+
+<td>{{ n.vlan or "-" }}</td>
+
+<td>
+{{ n.dhcp_start }}
+-
+{{ n.dhcp_end }}
+</td>
+
+<td>
+
+<a
+class="btn btn-sm btn-danger"
+href="/network/delete/{{ n.id }}">
+
+Excluir
+
+</a>
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+{% endblock %}

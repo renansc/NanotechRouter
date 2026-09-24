@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2>Firewall</h2>
+
+<div class="card mt-4">
+<div class="card-body">
+
+<form method="POST"
+action="/firewall/add">
+
+<div class="row">
+
+<div class="col">
+<input class="form-control"
+name="name"
+placeholder="Nome">
+</div>
+
+<div class="col">
+<input class="form-control"
+name="source"
+placeholder="Origem">
+</div>
+
+<div class="col">
+<input class="form-control"
+name="destination"
+placeholder="Destino">
+</div>
+
+<div class="col">
+
+<select
+class="form-control"
+name="protocol">
+
+<option>tcp</option>
+<option>udp</option>
+<option>icmp</option>
+
+</select>
+
+</div>
+
+<div class="col">
+
+<input
+class="form-control"
+name="port"
+placeholder="Porta">
+
+</div>
+
+<div class="col">
+
+<select
+class="form-control"
+name="action">
+
+<option value="accept">
+Permitir
+</option>
+
+<option value="drop">
+Bloquear
+</option>
+
+</select>
+
+</div>
+
+</div>
+
+<button
+class="btn btn-primary mt-3">
+
+Adicionar regra
+
+</button>
+
+</form>
+
+</div>
+</div>
+
+
+<table class="table mt-4 bg-white">
+
+<tr>
+<th>Nome</th>
+<th>Origem</th>
+<th>Destino</th>
+<th>Protocolo</th>
+<th>Porta</th>
+<th>Ação</th>
+</tr>
+
+{% for r in rules %}
+
+<tr>
+
+<td>{{ r.name }}</td>
+<td>{{ r.source }}</td>
+<td>{{ r.destination }}</td>
+<td>{{ r.protocol }}</td>
+<td>{{ r.port }}</td>
+<td>{{ r.action }}</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+{% endblock %}

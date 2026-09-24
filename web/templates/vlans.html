@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2>Redes / VLANs</h2>
+
+
+<div class="card shadow-sm">
+
+<div class="card-body">
+
+<h5>
+Criar VLAN
+</h5>
+
+<form
+ method="POST"
+ action="/vlan/create">
+
+<div class="row">
+
+<div class="col-md-3">
+
+<label>
+Interface física
+</label>
+
+<select
+ class="form-select"
+ name="parent"
+ required>
+
+{% for i in data.get(
+    "interfaces",
+    []
+) %}
+
+{% if i.type == "physical" %}
+
+<option
+ value="{{ i.name }}">
+
+{{ i.name }}
+
+</option>
+
+{% endif %}
+
+{% endfor %}
+
+</select>
+
+</div>
+
+
+<div class="col-md-2">
+
+<label>
+VLAN ID
+</label>
+
+<input
+ type="number"
+ min="1"
+ max="4094"
+ class="form-control"
+ name="vlan"
+ placeholder="20"
+ required>
+
+</div>
+
+
+<div class="col-md-3">
+
+<label>
+IP / CIDR
+</label>
+
+<input
+ class="form-control"
+ name="address"
+ placeholder="192.168.20.1/24"
+ required>
+
+</div>
+
+
+<div class="col-md-2">
+
+<label>
+Nome opcional
+</label>
+
+<input
+ class="form-control"
+ name="name"
+ placeholder="wifi">
+
+</div>
+
+
+<div class="col-md-2">
+
+<label>&nbsp;</label>
+
+<button
+ class="btn btn-primary w-100">
+
+Criar
+
+</button>
+
+</div>
+
+</div>
+
+</form>
+
+</div>
+
+</div>
+
+
+<h4 class="mt-4">
+VLANs existentes
+</h4>
+
+
+<table class="table bg-white">
+
+<tr>
+<th>Interface</th>
+<th>IP</th>
+<th>Estado</th>
+<th>Ação</th>
+</tr>
+
+
+{% for i in data.get(
+    "interfaces",
+    []
+) %}
+
+{% if i.type == "vlan" %}
+
+<tr>
+
+<td>
+{{ i.name }}
+</td>
+
+<td>
+
+{% for ip in i.addresses %}
+
+{{ ip }}
+
+<br>
+
+{% endfor %}
+
+</td>
+
+<td>
+{{ i.state }}
+</td>
+
+<td>
+
+<form
+ method="POST"
+ action="/vlan/delete">
+
+<input
+ type="hidden"
+ name="interface"
+ value="{{ i.name }}">
+
+<button
+ class="btn btn-danger btn-sm"
+ onclick="
+ return confirm(
+ 'Excluir VLAN {{ i.name }}?'
+ )">
+
+Excluir
+
+</button>
+
+</form>
+
+</td>
+
+</tr>
+
+{% endif %}
+
+{% endfor %}
+
+</table>
+
+{% endblock %}

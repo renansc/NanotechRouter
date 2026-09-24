@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2>Dashboard</h2>
+
+{% set cfg=data.get("configuration",{}) %}
+
+<div class="row mt-4">
+
+<div class="col-md-4">
+
+<div class="card shadow-sm">
+
+<div class="card-body">
+
+<h6>WAN</h6>
+
+<h3>
+{{ cfg.get("wan") or "Não definida" }}
+</h3>
+
+</div>
+
+</div>
+
+</div>
+
+
+<div class="col-md-4">
+
+<div class="card shadow-sm">
+
+<div class="card-body">
+
+<h6>Redes LAN</h6>
+
+<h3>
+{{ cfg.get("lans",{})|length }}
+</h3>
+
+</div>
+
+</div>
+
+</div>
+
+
+<div class="col-md-4">
+
+<div class="card shadow-sm">
+
+<div class="card-body">
+
+<h6>Clientes DHCP</h6>
+
+<h3>
+{{ leases.get("leases",[])|length }}
+</h3>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+
+<h4 class="mt-5">
+Interfaces
+</h4>
+
+<table class="table table-striped bg-white">
+
+<thead>
+
+<tr>
+
+<th>Interface</th>
+<th>Função</th>
+<th>Estado</th>
+<th>IP</th>
+<th>Gateway</th>
+<th>Velocidade</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{% for i in data.get("interfaces",[]) %}
+
+<tr>
+
+<td>
+<strong>{{ i.name }}</strong>
+</td>
+
+<td>
+{{ i.role }}
+</td>
+
+<td>
+{{ i.state }}
+</td>
+
+<td>
+
+{% for ip in i.addresses %}
+{{ ip }}<br>
+{% endfor %}
+
+</td>
+
+<td>
+{{ i.gateway or "-" }}
+</td>
+
+<td>
+
+{% if i.speed %}
+{{ i.speed }} Mbps
+{% else %}
+-
+{% endif %}
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+{% endblock %}

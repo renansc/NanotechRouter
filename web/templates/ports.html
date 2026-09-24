@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2>Portas</h2>
+
+<p class="text-muted">
+Defina um nome amigável para cada interface física.
+O sistema continuará usando o nome real internamente.
+</p>
+
+<div class="card shadow-sm mt-4">
+
+<div class="card-body">
+
+<table class="table align-middle">
+
+<thead>
+
+<tr>
+
+<th>Interface</th>
+<th>Apelido</th>
+<th>Função</th>
+<th>Estado</th>
+<th>MAC</th>
+<th>IP</th>
+<th></th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{% set amap=aliases.get("aliases",{}) %}
+
+{% for i in data.get("interfaces",[]) %}
+
+<tr>
+
+<td>
+<strong>
+{{ i.name }}
+</strong>
+</td>
+
+<td style="min-width:220px">
+
+<form
+method="POST"
+action="/ports/alias"
+class="d-flex gap-2">
+
+<input
+type="hidden"
+name="interface"
+value="{{ i.name }}">
+
+<input
+class="form-control"
+name="alias"
+placeholder="Ex.: Wi-Fi"
+value="{{ amap.get(i.name,'') }}">
+
+<button
+class="btn btn-primary">
+Salvar
+</button>
+
+</form>
+
+</td>
+
+<td>
+
+{% if i.role == "WAN" %}
+
+<span class="badge text-bg-warning">
+WAN
+</span>
+
+{% elif i.role == "LAN" %}
+
+<span class="badge text-bg-primary">
+LAN
+</span>
+
+{% else %}
+
+<span class="badge text-bg-secondary">
+{{ i.role }}
+</span>
+
+{% endif %}
+
+</td>
+
+<td>
+{{ i.state }}
+</td>
+
+<td>
+<code>{{ i.mac }}</code>
+</td>
+
+<td>
+
+{% for ip in i.addresses %}
+
+<div>
+{{ ip }}
+</div>
+
+{% else %}
+
+-
+
+{% endfor %}
+
+</td>
+
+<td>
+
+{% if amap.get(i.name) %}
+
+<strong>
+{{ amap.get(i.name) }}
+</strong>
+
+{% endif %}
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+
+{% endblock %}

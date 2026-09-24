@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Controle de Banda</h2>
+<p class="text-muted">Valor acima de 0 ativa o limite. Use 0 / 0 para deixar sem limite.</p>
+{% set amap=aliases.get("aliases",{}) %}
+{% set configured={} %}
+{% for r in rules.get("rules",[]) %}{% set _=configured.update({r.ip:r}) %}{% endfor %}
+
+<div class="card shadow-sm mt-4"><div class="card-body">
+<table class="table table-hover align-middle">
+<thead><tr><th>Nome</th><th>IP</th><th>MAC</th><th>Porta</th><th>Download Mbps</th><th>Upload Mbps</th><th>Limite</th><th></th></tr></thead>
+<tbody>
+{% for d in devices.get("devices",[]) %}
+{% if d.ip and d.interface %}
+{% set r=configured.get(d.ip,{}) %}
+{% set form_id="bandwidth-rule-" ~ loop.index %}
+<tr>
+<td><strong>{{ d.display_name }}</strong></td>
+<td><input type="hidden" name="ip" form="{{ form_id }}" value="{{ d.ip }}">{{ d.ip }}</td>
+<td><code>{{ d.mac or '-' }}</code></td>
+<td><input type="hidden" name="interface" form="{{ form_id }}" value="{{ d.interface }}">{{ d.port_alias or d.interface }}</td>
+<td><input class="form-control form-control-sm" type="number" min="0" name="download_mbps" form="{{ form_id }}" value="{{ r.get('download_mbps',0) }}"></td>
+<td><input class="form-control form-control-sm" type="number" min="0" name="upload_mbps" form="{{ form_id }}" value="{{ r.get('upload_mbps',0) }}"></td>
+<td>{% if r.get('enabled',False) and (r.get('download_mbps',0)|int > 0 or r.get('upload_mbps',0)|int > 0) %}<span class="badge text-bg-success">Limite ativo</span>{% else %}<span class="badge text-bg-secondary">Sem limite</span>{% endif %}</td>
+<td><form id="{{ form_id }}" method="POST" action="/bandwidth/rule"><button type="submit" class="btn btn-sm btn-primary">Aplicar</button></form></td>
+</tr>
+{% endif %}
+{% else %}
+<tr><td colspan="8" class="text-center text-muted">Nenhum dispositivo encontrado.</td></tr>
+{% endfor %}
+</tbody></table>
+</div></div>
+
+<h4 class="mt-4">Limites configurados</h4>
+<div class="card shadow-sm"><div class="card-body">
+<table class="table align-middle mb-0">
+<thead><tr><th>IP</th><th>Porta</th><th>Download</th><th>Upload</th><th>Estado</th><th></th></tr></thead>
+<tbody>
+{% for r in rules.get("rules",[]) %}
+<tr>
+<td>{{ r.ip }}</td><td>{{ amap.get(r.interface,r.interface) }}</td>
+<td>{% if r.download_mbps %}{{ r.download_mbps }} Mbps{% else %}Ilimitado{% endif %}</td>
+<td>{% if r.upload_mbps %}{{ r.upload_mbps }} Mbps{% else %}Ilimitado{% endif %}</td>
+<td>{% if r.get('enabled',False) and (r.get('download_mbps',0)|int > 0 or r.get('upload_mbps',0)|int > 0) %}<span class="badge text-bg-success">Ativo</span>{% else %}<span class="badge text-bg-secondary">Inativo</span>{% endif %}</td>
+<td><form method="POST" action="/bandwidth/delete"><input type="hidden" name="ip" value="{{ r.ip }}"><button class="btn btn-sm btn-outline-danger">Remover</button></form></td>
+</tr>
+{% else %}
+<tr><td colspan="6" class="text-center text-muted">Nenhum limite configurado.</td></tr>
+{% endfor %}
+</tbody></table>
+</div></div>
+{% endblock %}

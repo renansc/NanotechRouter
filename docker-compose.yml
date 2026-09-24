@@ -1,0 +1,19 @@
+services:
+
+  router-web:
+
+    build:
+      context: ./web
+
+    container_name: linux-router-web
+
+    restart: unless-stopped
+
+    network_mode: host
+
+    volumes:
+      - ./data:/data
+
+    environment:
+      - TZ=America/Sao_Paulo
+      - ROUTER_SECRET_KEY=${ROUTER_SECRET_KEY:?Defina ROUTER_SECRET_KEY no arquivo .env}

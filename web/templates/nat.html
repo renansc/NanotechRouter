@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>NAT / Port Forward</h2>
+{% set amap=aliases.get("aliases",{}) %}
+
+<h4 class="mt-4">NAT de saída</h4>
+<div class="card shadow-sm mb-4"><div class="card-body">
+<table class="table align-middle mb-0">
+<thead><tr><th>LAN</th><th>Rede</th><th>WAN</th><th>Estado</th></tr></thead>
+<tbody>
+{% for n in nat.get("nat",[]) %}
+<tr>
+<td>{{ amap.get(n.interface,n.interface) }} ({{ n.interface }})</td>
+<td>{{ n.network }}</td>
+<td>{{ amap.get(n.wan,n.wan) }} ({{ n.wan }})</td>
+<td>{% if n.internet %}<span class="badge text-bg-success">MASQUERADE ativo</span>{% else %}<span class="badge text-bg-secondary">Sem Internet</span>{% endif %}</td>
+</tr>
+{% endfor %}
+</tbody></table>
+</div></div>
+
+<h4>Novo redirecionamento</h4>
+<div class="card shadow-sm mb-4"><div class="card-body">
+<form method="POST" action="/nat/forward">
+<div class="row g-3">
+<div class="col-md-3"><label class="form-label">Nome</label><input class="form-control" name="name" placeholder="Ex.: Câmera"></div>
+<div class="col-md-2"><label class="form-label">Protocolo</label><select class="form-select" name="protocol"><option value="tcp">TCP</option><option value="udp">UDP</option></select></div>
+<div class="col-md-2"><label class="form-label">Porta WAN</label><input class="form-control" type="number" min="1" max="65535" name="external_port" required></div>
+<div class="col-md-3"><label class="form-label">IP destino</label><input class="form-control" name="internal_ip" placeholder="192.168.18.150" required></div>
+<div class="col-md-2"><label class="form-label">Porta destino</label><input class="form-control" type="number" min="1" max="65535" name="internal_port" required></div>
+</div>
+<div class="mt-3"><label><input type="checkbox" name="enabled" checked> Ativo</label></div>
+<button class="btn btn-primary mt-3">Adicionar</button>
+</form>
+</div></div>
+
+<h4>Redirecionamentos</h4>
+<div class="card shadow-sm"><div class="card-body">
+<table class="table align-middle">
+<thead><tr><th>Nome</th><th>Protocolo</th><th>Porta WAN</th><th>Destino</th><th>Estado</th><th></th></tr></thead>
+<tbody>
+{% for r in forwards.get("rules",[]) %}
+<tr>
+<td>{{ r.name }}</td><td>{{ r.protocol|upper }}</td><td>{{ r.external_port }}</td>
+<td>{{ r.internal_ip }}:{{ r.internal_port }}</td>
+<td>{% if r.download_mbps|int > 0 or r.upload_mbps|int > 0 %}<span class="badge text-bg-success">Limite ativo</span>{% else %}<span class="badge text-bg-secondary">Sem limite</span>{% endif %}</td>
+<td><form method="POST" action="/nat/forward/delete"><input type="hidden" name="id" value="{{ r.id }}"><button class="btn btn-sm btn-danger" onclick="return confirm('Excluir?')">Excluir</button></form></td>
+</tr>
+{% else %}
+<tr><td colspan="6" class="text-center text-muted">Nenhum redirecionamento.</td></tr>
+{% endfor %}
+</tbody></table>
+</div></div>
+{% endblock %}
