@@ -22,7 +22,8 @@
 <td><input class="form-control form-control-sm" type="number" min="0" name="download_mbps" form="{{ form_id }}" value="{{ r.get('download_mbps',0) }}"></td>
 <td><input class="form-control form-control-sm" type="number" min="0" name="upload_mbps" form="{{ form_id }}" value="{{ r.get('upload_mbps',0) }}"></td>
 <td>{% if r.get('enabled',False) and (r.get('download_mbps',0)|int > 0 or r.get('upload_mbps',0)|int > 0) %}<span class="badge text-bg-success">Limite ativo</span>{% else %}<span class="badge text-bg-secondary">Sem limite</span>{% endif %}</td>
-<td><form id="{{ form_id }}" method="POST" action="/bandwidth/rule"><button type="submit" class="btn btn-sm btn-primary">Aplicar</button></form></td>
+<td><form id="{{ form_id }}" method="POST" action="/bandwidth/rule">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-sm btn-primary">Aplicar</button></form></td>
 </tr>
 {% endif %}
 {% else %}
@@ -42,7 +43,8 @@
 <td>{% if r.download_mbps %}{{ r.download_mbps }} Mbps{% else %}Ilimitado{% endif %}</td>
 <td>{% if r.upload_mbps %}{{ r.upload_mbps }} Mbps{% else %}Ilimitado{% endif %}</td>
 <td>{% if r.get('enabled',False) and (r.get('download_mbps',0)|int > 0 or r.get('upload_mbps',0)|int > 0) %}<span class="badge text-bg-success">Ativo</span>{% else %}<span class="badge text-bg-secondary">Inativo</span>{% endif %}</td>
-<td><form method="POST" action="/bandwidth/delete"><input type="hidden" name="ip" value="{{ r.ip }}"><button class="btn btn-sm btn-outline-danger">Remover</button></form></td>
+<td><form method="POST" action="/bandwidth/delete">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="ip" value="{{ r.ip }}"><button class="btn btn-sm btn-outline-danger">Remover</button></form></td>
 </tr>
 {% else %}
 <tr><td colspan="6" class="text-center text-muted">Nenhum limite configurado.</td></tr>

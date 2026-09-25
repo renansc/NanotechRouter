@@ -144,6 +144,7 @@ BLOQUEADA
 <form
 method="POST"
 action="/lan/set">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
 <input
 type="hidden"
@@ -256,6 +257,7 @@ Salvar alterações
 method="POST"
 action="/lan/delete"
 style="display:inline">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
 <input
 type="hidden"
@@ -288,6 +290,7 @@ Remover LAN
 <form
 method="POST"
 action="/wan/set">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
 <input
 type="hidden"
@@ -316,6 +319,7 @@ Definir como WAN
 <form
 method="POST"
 action="/lan/set">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
 <input
 type="hidden"

@@ -1,3 +1,4 @@
+import tempfile
 import os
 import sys
 import unittest
@@ -12,7 +13,20 @@ import app as web
 
 class BandwidthTests(unittest.TestCase):
     def setUp(self):
+        self.auth_tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.auth_tmp.cleanup)
+        web.app.config['AUTH_DIRECTORY'] = self.auth_tmp.name
+        from werkzeug.security import generate_password_hash
+        admin = web.current_admin()
+        import sqlite3
+        with sqlite3.connect(str(Path(self.auth_tmp.name) / 'admin.sqlite3')) as db:
+            db.execute('UPDATE admin SET initial=0')
         self.client = web.app.test_client()
+        self.client.environ_base['HTTP_X_CSRF_TOKEN'] = 'synthetic-csrf'
+        with self.client.session_transaction() as session:
+            session['admin_version'] = admin['version']
+            session['csrf'] = 'synthetic-csrf'
+
         self.payload = {'ip': '192.0.2.137', 'interface': 'eth1'}
 
     def test_rates_control_activation_without_checkbox(self):

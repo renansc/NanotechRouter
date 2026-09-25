@@ -5,6 +5,7 @@ Never run this checker in the host's network namespace.
 """
 import importlib.util
 import os
+import sys
 import subprocess
 from pathlib import Path
 from unittest.mock import patch
@@ -13,6 +14,7 @@ if os.readlink('/proc/self/ns/net') == os.readlink('/proc/1/ns/net'):
     raise SystemExit('Use unshare --net: este teste não pode alterar a rede principal.')
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'core'))
 spec = importlib.util.spec_from_file_location('firewall_check', root / 'core/core.py')
 core = importlib.util.module_from_spec(spec)
 with patch('os.makedirs'):

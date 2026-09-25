@@ -17,3 +17,4 @@ services:
     environment:
       - TZ=America/Sao_Paulo
       - ROUTER_SECRET_KEY=${ROUTER_SECRET_KEY:?Defina ROUTER_SECRET_KEY no arquivo .env}
+      - ROUTER_API_TOKEN=${ROUTER_API_TOKEN:?Defina ROUTER_API_TOKEN no arquivo .env}

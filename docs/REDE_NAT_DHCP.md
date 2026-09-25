@@ -70,8 +70,8 @@ da interface exigem reaplicar a configuração ou reiniciar pelo fluxo existente
 
 Usar `http://<IP-do-gateway>:5000` na LAN e `http://<IP-WAN>:5000` na rede de gestão
 externa. A página DHCP mostra um link com o gateway de cada LAN. O core continua
-em 127.0.0.1:5050; o painel permanece sem autenticação individual, conforme
-[catálogo de acessos](ACESSOS.md), sob as restrições de rede da instalação.
+em 127.0.0.1:5050; o painel agora exige login admin local e o core exige token interno, conforme
+[catálogo de acessos](ACESSOS.md) e [segurança](SEGURANCA_VLAN_ROTAS.md).
 
 O Gunicorn web usa dois workers gthread com quatro threads cada. Os logs
 registraram workers síncronos esperando conexões que não enviavam uma requisição

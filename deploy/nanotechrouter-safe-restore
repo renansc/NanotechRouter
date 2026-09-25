@@ -7,6 +7,18 @@ exec >>"$LOG" 2>&1
 echo "===== $(date -Is) NanotechRouter safe restore ====="
 [[ -f "$STATE" ]] || exit 1
 sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || true
+# Never source .env as shell code or print the internal credential.
+api() {
+  local ROUTER_HEADER
+  ROUTER_HEADER="$(sed -n 's/^ROUTER_API_TOKEN=/X-Router-Token: /p' "$BASE/.env")"
+  [[ -n "$ROUTER_HEADER" ]] || return 1
+  printf '%s\n' "$ROUTER_HEADER" | curl -fsS --header @- -X POST "http://127.0.0.1:5050$1"
+}
+for _ in $(seq 1 20); do
+  curl -fsS http://127.0.0.1:5050/health >/dev/null 2>&1 && break
+  sleep 1
+done
+api /api/system/restore-links || exit 1
 mapfile -t LANS < <(jq -r '.lans | keys[]?' "$STATE")
 for IFACE in "${LANS[@]}"; do
   ip link show "$IFACE" >/dev/null 2>&1 || continue
@@ -30,6 +42,6 @@ for _ in $(seq 1 20); do
   sleep 1
 done
 if curl -fsS http://127.0.0.1:5050/health >/dev/null 2>&1; then
-  curl -fsS -X POST http://127.0.0.1:5050/api/system/reapply || true
+  api /api/system/reapply || exit 1
 fi
 for IFACE in "${LANS[@]}"; do ip -br -4 addr show "$IFACE" 2>/dev/null || true; done

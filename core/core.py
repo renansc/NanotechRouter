@@ -625,6 +625,20 @@ def rebuild_forward():
 
         position += 1
 
+    # Routed LAN/VLAN traffic remains subject to the earlier nft firewall chain.
+    # Explicit traversal here prevents Docker's FORWARD DROP from hiding valid rules.
+    lans = [name for name in state.get("lans", {}) if interface_exists(name)]
+    for source in lans:
+        for destination in lans:
+            if source == destination:
+                continue
+            result = run(["iptables", "-I", "DOCKER-USER", str(position),
+                          "-i", source, "-o", destination, "-m", "comment",
+                          "--comment", "linux-router", "-j", "ACCEPT"])
+            if not result["success"]:
+                return {"success": False, "message": result["stderr"]}
+            position += 1
+
     return {
         "success": True,
         "message": "FORWARD atualizado."
@@ -654,6 +668,7 @@ def rebuild_network_rules():
     forward_result = rebuild_forward()
 
     return {
+        "success": all(result.get("success", False) for result in (local_routes, nat_result, forward_result)),
         "local_routes": local_routes,
         "nat": nat_result,
         "forward": forward_result
@@ -1876,8 +1891,16 @@ def nr_reapply():
         network = rebuild_nat()
     pf = nr_rebuild_port_forwards()
     qos = nr_apply_qos()
-    return jsonify({"success": True, "network": network,
-                    "port_forward": pf, "qos": qos})
+    try:
+        with NETWORK_LOCK:
+            management.restore_routes()
+            management.restore_policy()
+        extra = {"success": True}
+    except Exception as exc:
+        extra = {"success": False, "message": str(exc)}
+    success = all(r.get("success", False) for r in (network, pf, qos, extra))
+    return jsonify({"success": success, "network": network,
+                    "port_forward": pf, "qos": qos, "management": extra}), (200 if success else 500)
 
 # NANOTECHROUTER_V040_END
 
@@ -1898,7 +1921,7 @@ def status():
 
     return jsonify({
         "success": True,
-        "version": "0.3.0",
+        "version": "0.5.0",
         "forwarding":
             open(
                 "/proc/sys/net/ipv4/ip_forward"
@@ -2340,6 +2363,10 @@ def config():
         "success": True,
         "configuration": load_state()
     })
+
+
+from management import register as register_management
+management = register_management(app, globals())
 
 
 if __name__ == "__main__":

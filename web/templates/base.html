@@ -64,6 +64,8 @@ body {
     margin-bottom:20px;
 }
 
+.sidebar { overflow-y:auto; }
+@media(max-width:850px){.sidebar{position:static;width:100%;height:auto;display:flex;flex-wrap:wrap}.sidebar .logo{width:100%}.sidebar a{padding:8px 12px}.content{margin-left:0;padding:18px}.sidebar form{margin:8px}}
 </style>
 
 </head>
@@ -98,11 +100,11 @@ DHCP / Reservas de IP
 Dispositivos
 </a>
 
-<a href="#">
+<a href="/vlans">
 VLANs
 </a>
 
-<a href="#">
+<a href="/firewall">
 Firewall
 </a>
 
@@ -110,13 +112,14 @@ Firewall
 
 <a href="/bandwidth">Controle de Banda</a>
 
-<a href="#">
+<a href="/routes">
 Rotas
 </a>
 
-<a href="#">
-Sistema
+<a href="/system">
+Sistema / Configuração
 </a>
+<form method="post" action="/logout" class="px-3 py-3"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-outline-light btn-sm">Sair · admin</button></form>
 
 </div>
 

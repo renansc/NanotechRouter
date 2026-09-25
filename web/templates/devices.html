@@ -17,6 +17,7 @@ Dispositivos encontrados via DHCP e ARP/Neighbor.
 <form
 method="POST"
 action="/devices/discover">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
 <button
 class="btn btn-success">
@@ -176,6 +177,7 @@ ARP
 method="POST"
 action="/devices/name"
 class="d-flex gap-2">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
 <input
 type="hidden"

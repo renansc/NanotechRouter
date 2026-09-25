@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'web'))
 os.environ.setdefault('ROUTER_SECRET_KEY', 'synthetic-key-for-isolated-tests-only')
 import app as web
+sys.path.insert(0, str(ROOT / 'core'))
 spec = importlib.util.spec_from_file_location('router_core_tests', ROOT / 'core/core.py')
 core = importlib.util.module_from_spec(spec)
 with patch('os.makedirs'):
@@ -43,7 +44,10 @@ class CoreManagementTests(unittest.TestCase):
         core.save_state(STATE)
         self.conf = base / 'config/dnsmasq/eth1.conf'
         self.conf.write_text('interface=eth1\nlog-dhcp\ndhcp-range=192.0.2.100,192.0.2.199,255.255.255.0,12h\n')
+        patch.dict(os.environ, {'ROUTER_API_TOKEN': 'synthetic-api-token'}).start()
         self.client = core.app.test_client()
+        self.client.environ_base['HTTP_X_ROUTER_TOKEN'] = 'synthetic-api-token'
+
         self.command = patch.object(core, 'run', return_value=OK).start()
         self.addCleanup(patch.stopall)
         patch.object(core, 'stop_dhcp').start()
@@ -162,7 +166,20 @@ class CoreManagementTests(unittest.TestCase):
 
 class WebManagementTests(unittest.TestCase):
     def setUp(self):
+        self.auth_tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.auth_tmp.cleanup)
+        web.app.config['AUTH_DIRECTORY'] = self.auth_tmp.name
+        from werkzeug.security import generate_password_hash
+        admin = web.current_admin()
+        import sqlite3
+        with sqlite3.connect(str(Path(self.auth_tmp.name) / 'admin.sqlite3')) as db:
+            db.execute('UPDATE admin SET initial=0')
         self.client = web.app.test_client()
+        self.client.environ_base['HTTP_X_CSRF_TOKEN'] = 'synthetic-csrf'
+        with self.client.session_transaction() as session:
+            session['admin_version'] = admin['version']
+            session['csrf'] = 'synthetic-csrf'
+
         self.data = {'/api/nat/status': {'nat': []}, '/api/nat/forwards': {'rules': [RULE]}, '/api/ports/aliases': {'aliases': {}},
                      '/api/interfaces': {'configuration': STATE}, '/api/dhcp/leases': {'leases': []},
                      '/api/dhcp/reservations': {'reservations': [{**RESERVATION, 'id': 'r1'}]}}

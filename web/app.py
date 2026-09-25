@@ -25,6 +25,7 @@ def get(path):
 
         r = requests.get(
             CORE + path,
+            headers={"X-Router-Token": os.environ.get("ROUTER_API_TOKEN", "")},
             timeout=10
         )
 
@@ -45,7 +46,8 @@ def post(path, data):
         r = requests.post(
             CORE + path,
             json=data,
-            timeout=20
+            headers={"X-Router-Token": os.environ.get("ROUTER_API_TOKEN", "")},
+            timeout=120
         )
 
         return r.json()
@@ -239,12 +241,7 @@ def dhcp_reservation_delete():
     return redirect(url_for("dhcp"))
 
 
-if __name__ == "__main__":
 
-    app.run(
-        host="0.0.0.0",
-        port=5000
-    )
 
 
 # ============================================================
@@ -458,3 +455,58 @@ def bandwidth_delete():
     return redirect(url_for("bandwidth_page"))
 
 # NANOTECHROUTER_WEB_V040_END
+
+
+from security import install as install_security
+current_admin = install_security(app)
+
+
+@app.get("/system")
+def system_page():
+    return render_template("system.html", data=get("/api/system/info"), initial=current_admin()["initial"])
+
+
+@app.post("/system/reboot")
+def system_reboot():
+    from werkzeug.security import check_password_hash
+    if not check_password_hash(current_admin()["password"], request.form.get("password", "")):
+        flash("Senha incorreta; reinício cancelado.")
+    elif request.form.get("confirmation") != "REINICIAR":
+        flash("Digite REINICIAR para confirmar.")
+    else:
+        result = post("/api/system/reboot", {"confirmation": "REINICIAR"})
+        flash(result.get("message", "Falha ao solicitar reinício."))
+    return redirect(url_for("system_page"))
+
+
+@app.get("/vlans")
+@app.get("/routes")
+@app.get("/firewall")
+def management_page():
+    section = request.path.strip("/")
+    data = get("/api/" + section)
+    if not data.get("success"):
+        flash(data.get("message", "Não foi possível carregar as configurações."))
+    selected = next((r for r in data.get("items", []) if r.get("id") == request.args.get("edit")), {})
+    return render_template(section + ".html", data=data, selected=selected,
+                           interfaces=get("/api/interfaces").get("interfaces", []))
+
+
+@app.post("/manage/<section>/<operation>")
+def management_save(section, operation):
+    if section not in ("vlans", "routes", "firewall") or operation not in ("save", "delete", "move", "settings", "lists"):
+        from flask import abort
+        abort(404)
+    data = request.form.to_dict()
+    for field in ("enabled", "vpn_ports", "remote_ports", "dns_enabled", "block_encrypted_dns", "block_ipv6"):
+        data[field] = request.form.get(field) == "on"
+    data["categories"] = request.form.getlist("categories")
+    data["interfaces"] = request.form.getlist("interfaces")
+    result = post("/api/" + section + "/" + operation, data)
+    flash(result.get("message", "Configuração salva." if result.get("success") else "Falha ao salvar."))
+    tab = "?tab=" + ("lists" if operation == "lists" else "profiles") if section == "firewall" and operation in ("lists", "settings") else ""
+    return redirect("/" + section + tab)
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)

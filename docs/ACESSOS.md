@@ -1,24 +1,23 @@
 # Catálogo de funções e acessos
 
-Inventário das rotas existentes na versão atualizada em 25/09/2026.
-A interface web não implementa autenticação/autorização por usuário. O core
-escuta exclusivamente em 127.0.0.1:5050 e recebe as chamadas da interface web.
-O acesso administrativo depende das restrições de rede do ambiente.
-ROUTER_SECRET_KEY assina cookies; não cria autenticação nem altera permissões.
+Atualizado para 0.5.0. A instalação independente tem uma conta local **admin**,
+com acesso integral. Todas as páginas exigem sessão válida, exceto login/static.
+Todo POST exige CSRF. A senha inicial precisa ser trocada antes de administrar.
+O core exige `X-Router-Token` em todas as APIs, exceto `/health`.
 
-Esta aplicação independente não possui manifest app.json nem Config > Usuarios
-e acessos. Nenhuma concessão de acesso foi adicionada na preparação para Git.
-Não é possível testar perfis de usuário autorizados/não autorizados enquanto
-não existir esse mecanismo. As validações de entrada das rotas permanecem.
-A eventual integração ao NanotechSoft deverá reutilizar o login único e incluir
-os recursos nos manifests, nas verificações de servidor e no catálogo central.
+**Sistema / Configuração > Usuários e acessos** exibe o mesmo inventário funcional.
+Não há concessões por pessoa/recurso nem manifest NanotechSoft nesta instalação.
+Uma integração futura deverá usar login/sessão/catálogo central, substituindo
+a conta local. Implementação e testes: [Administração e segurança](SEGURANCA_VLAN_ROTAS.md).
 
-Reservas DHCP adicionam consulta, cadastro/edição e exclusão no mesmo limite de
-acesso administrativo existente. NAT reutiliza a rota de cadastro para edição,
-com validação do ID e dos conflitos no servidor. Nenhum novo perfil ou concessão
-foi criado. A aplicação não possui manifest nem cadastro de usuários integrados.
-Os testes verificam rejeição de entradas inválidas e de IDs inexistentes; perfis
-individuais permanecem não aplicáveis enquanto não existir autenticação.
+Recurso | Acesso
+--- | ---
+Interfaces/WAN/LAN, DHCP, dispositivos/apelidos, NAT, banda | admin integral
+VLANs, rotas, firewall/regras/filtros/listas | admin integral
+Sistema/alterar senha | admin com senha atual
+Sistema/reiniciar | admin, senha atual e confirmação REINICIAR
+Login | público, CSRF e limite de tentativas
+Core | token interno; não acessível diretamente pela rede
 
 | Componente | Método | Rota | Função |
 | --- | --- | --- | --- |
@@ -65,3 +64,25 @@ individuais permanecem não aplicáveis enquanto não existir autenticação.
 | core | POST | `/api/lan/delete` | `delete_lan` |
 | core | GET | `/api/dhcp/leases` | `leases` |
 | core | GET | `/api/config` | `config` |
+
+| web | GET/POST | `/login` | Entrar |
+| web | POST | `/logout` | Sair |
+| web | GET | `/system` | Senha, estado/reinício, usuários e acessos |
+| web | POST | `/system/password` | Trocar senha do painel |
+| web | POST | `/system/reboot` | Confirmar e solicitar reinício |
+| web | GET | `/vlans`, `/routes`, `/firewall` | Cadastro e estado |
+| web | POST | `/manage/<section>/<operation>` | Validar seção/operação e encaminhar mutação autenticada |
+| core | GET | `/api/system/info` | Estado e versão |
+| core | POST | `/api/system/reboot` | Agendar reinício confirmado |
+| core | POST | `/api/system/restore-links` | Recriar VLANs cadastradas no boot |
+| core | GET | `/api/vlans`, `/api/routes`, `/api/firewall` | Cadastros, filtros, listas e estado |
+| core | POST | `/api/vlans/save`, `/api/vlans/delete` | Criar/excluir VLAN, verificar dependências |
+| core | POST | `/api/routes/save`, `/api/routes/delete` | Criar/editar/ativar/excluir rota |
+| core | POST | `/api/firewall/save`, `/api/firewall/delete`, `/api/firewall/move` | CRUD e ordem de regras |
+| core | POST | `/api/firewall/settings` | Ativar/desativar política e aplicar filtros |
+| core | POST | `/api/firewall/lists` | Baixar categorias de fontes fixas |
+
+As rotas genéricas aceitam somente as seções e operações listadas. O servidor
+recusa token ausente/incorreto, entrada inválida, IDs desconhecidos e interfaces
+em uso. Testes verificam login necessário, CSRF, senha inicial, expiração por
+troca de senha, limitação de tentativas, páginas autenticadas e comandos rejeitados.

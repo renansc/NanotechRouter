@@ -1,0 +1,5 @@
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
+{% macro field(name, label, value='', placeholder='', type='text', required=false) %}
+<div class="col-md-4"><label class="form-label" for="{{ name }}">{{ label }}</label><input class="form-control" id="{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value }}" placeholder="{{ placeholder }}" {% if required %}required{% endif %}></div>
+{% endmacro %}
+{% macro delete(section, id) %}<form method="post" action="/manage/{{ section }}/delete" class="d-inline" onsubmit="return confirm('Excluir este cadastro?')">{{ csrf() }}<input type="hidden" name="id" value="{{ id }}"><button class="btn btn-sm btn-outline-danger">Excluir</button></form>{% endmacro %}

@@ -1,8 +1,8 @@
 # NanotechRouter
 
 Gerenciador de roteador Linux com interface web para WAN/LAN, DHCP,
-dispositivos, apelidos de portas, NAT, redirecionamento de portas e controle
-de banda por IPv4. Código extraído da instalação em `/opt/linux-router`,
+dispositivos, apelidos de portas, NAT, redirecionamento de portas, controle
+de banda por IPv4, VLANs, rotas estáticas, firewall e administração com login. Código extraído da instalação em `/opt/linux-router`,
 incluindo a correção do controle de banda e as reservas DHCP/edição de NAT.
 
 ## Estrutura
@@ -28,8 +28,7 @@ diretório `/opt/linux-router`, usa nftables para NAT e a chain `DOCKER-USER`
 para encaminhamento. As dependências Python estão nos dois requirements.txt.
 
 A interface utiliza a porta 5000 e chama o core em `127.0.0.1:5050`.
-Use Gunicorn: existem rotas declaradas depois do bloco de execução direta
-em `web/app.py`, portanto `python web/app.py` não carrega todas as funções.
+Use Gunicorn com as configurações fornecidas no Dockerfile e no serviço do core.
 
 ## Chave da aplicação
 
@@ -46,6 +45,7 @@ import secrets
 fd = os.open('.env', os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
 with os.fdopen(fd, 'w') as target:
     target.write('ROUTER_SECRET_KEY=' + secrets.token_hex(32) + '\n')
+    target.write('ROUTER_API_TOKEN=' + secrets.token_hex(32) + '\n')
 PY
 ```
 
@@ -92,12 +92,16 @@ O download usa HTB e o upload usa policiamento de ingress nas LANs cadastradas.
 O indicador representa a configuração salva, não uma medição de velocidade.
 Detalhes e limitações em [Controle de banda](docs/CONTROLE_DE_BANDA.md).
 
-Esta aplicação independente ainda não possui login nem permissões individuais.
-Sua interface administrativa deve ser acessível somente pela rede de gestão
-controlada. O core permanece em loopback. Consulte o [catálogo](docs/ACESSOS.md).
-VLANs, Firewall, Rotas e Sistema têm atalhos de interface ainda sem fluxo
-completo implementado. O arquivo VERSION e a versão da API são metadados legados
-da instalação original e ainda não representam um processo de releases.
+Esta instalação independente possui login local: **admin / admin** no primeiro
+acesso, com troca obrigatória antes de administrar a rede. A senha é persistida
+em hash e não é redefinida em atualizações. Configure também `ROUTER_API_TOKEN`
+aleatório no `.env` para autenticar painel/core/boot; preserve a chave existente.
+O painel permanece HTTP na porta 5000; use a rede de gestão ou Tailscale.
+
+VLANs, rotas estáticas, firewall, filtros DNS e Sistema / Configuração possuem
+fluxos funcionais. Os novos bloqueios começam desativados e são configurados
+pelo operador na interface. Consulte [Administração e segurança](docs/SEGURANCA_VLAN_ROTAS.md)
+para uso, persistência, dependências e limites dos filtros. Versão atual: 0.5.0.
 
 ## Reservas e NAT (25/09/2026)
 

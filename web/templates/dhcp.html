@@ -10,6 +10,7 @@
 <div class="card shadow-sm mb-4" id="reservation-form"><div class="card-body">
 <h4>{{ 'Editar reserva' if selected.get('id') else 'Nova reserva' }}</h4>
 <form method="POST" action="{{ url_for('dhcp_reservation_save') }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <input type="hidden" name="id" value="{{ selected.get('id', '') }}">
 <div class="row g-3">
 <div class="col-md-2"><label class="form-label" for="reservation-interface">LAN</label>
@@ -30,7 +31,8 @@
 {% for r in reservations.get('reservations', []) %}
 <tr><td>{{ r.interface }}</td><td>{{ r.ip }}</td><td><code>{{ r.mac }}</code></td><td>{{ r.hostname or '—' }}</td>
 <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('dhcp', edit=r.id) }}#reservation-form">Editar</a>
-<form class="d-inline" method="POST" action="{{ url_for('dhcp_reservation_delete') }}"><input type="hidden" name="id" value="{{ r.id }}"><button class="btn btn-sm btn-outline-danger" onclick="return confirm('Remover esta reserva? O aparelho voltará a receber IP dinâmico ao renovar o DHCP.')">Excluir</button></form></td></tr>
+<form class="d-inline" method="POST" action="{{ url_for('dhcp_reservation_delete') }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="id" value="{{ r.id }}"><button class="btn btn-sm btn-outline-danger" onclick="return confirm('Remover esta reserva? O aparelho voltará a receber IP dinâmico ao renovar o DHCP.')">Excluir</button></form></td></tr>
 {% else %}<tr><td colspan="5" class="text-muted">Nenhuma reserva cadastrada.</td></tr>{% endfor %}
 </tbody></table></div>
 <h4>Clientes DHCP</h4>

@@ -51,6 +51,7 @@ O sistema continuará usando o nome real internamente.
 method="POST"
 action="/ports/alias"
 class="d-flex gap-2">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
 <input
 type="hidden"
