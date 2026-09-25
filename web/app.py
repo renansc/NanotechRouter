@@ -209,11 +209,34 @@ def dhcp():
         "/api/interfaces"
     )
 
+    reservations = get("/api/dhcp/reservations")
+    selected = next((r for r in reservations.get("reservations", [])
+                     if r.get("id") == request.args.get("edit")), None)
+    if selected is None:
+        selected = {key: request.args.get(key, "") for key in ("interface", "mac", "ip", "hostname")}
+
     return render_template(
         "dhcp.html",
         leases=leases,
-        data=data
+        data=data,
+        reservations=reservations,
+        selected=selected
     )
+
+
+@app.route("/dhcp/reservation", methods=["POST"])
+def dhcp_reservation_save():
+    result = post("/api/dhcp/reservation", {key: request.form.get(key, "")
+                  for key in ("id", "interface", "mac", "ip", "hostname")})
+    flash(result.get("message", "Operação concluída."))
+    return redirect(url_for("dhcp"))
+
+
+@app.route("/dhcp/reservation/delete", methods=["POST"])
+def dhcp_reservation_delete():
+    result = post("/api/dhcp/reservation/delete", {"id": request.form.get("id", "")})
+    flash(result.get("message", "Operação concluída."))
+    return redirect(url_for("dhcp"))
 
 
 if __name__ == "__main__":
@@ -367,16 +390,21 @@ def device_name():
 
 @app.route("/nat")
 def nat_page():
+    forwards = get("/api/nat/forwards")
+    selected = next((r for r in forwards.get("rules", [])
+                     if str(r.get("id")) == request.args.get("edit")), {})
     return render_template(
         "nat.html",
         nat=get("/api/nat/status"),
-        forwards=get("/api/nat/forwards"),
+        forwards=forwards,
+        selected=selected,
         aliases=get("/api/ports/aliases")
     )
 
 @app.route("/nat/forward", methods=["POST"])
 def nat_forward_save():
     result = post("/api/nat/forward", {
+        "id": request.form.get("id", ""),
         "name": request.form.get("name", ""),
         "protocol": request.form.get("protocol", "tcp"),
         "external_port": request.form.get("external_port", ""),

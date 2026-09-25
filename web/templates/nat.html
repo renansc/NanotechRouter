@@ -19,21 +19,24 @@
 </tbody></table>
 </div></div>
 
-<h4>Novo redirecionamento</h4>
+<h4 id="rule-form">{{ "Editar redirecionamento" if selected.get("id") else "Novo redirecionamento" }}</h4>
 <div class="card shadow-sm mb-4"><div class="card-body">
 <form method="POST" action="/nat/forward">
+<input type="hidden" name="id" value="{{ selected.get('id', '') }}">
 <div class="row g-3">
-<div class="col-md-3"><label class="form-label">Nome</label><input class="form-control" name="name" placeholder="Ex.: Câmera"></div>
-<div class="col-md-2"><label class="form-label">Protocolo</label><select class="form-select" name="protocol"><option value="tcp">TCP</option><option value="udp">UDP</option></select></div>
-<div class="col-md-2"><label class="form-label">Porta WAN</label><input class="form-control" type="number" min="1" max="65535" name="external_port" required></div>
-<div class="col-md-3"><label class="form-label">IP destino</label><input class="form-control" name="internal_ip" placeholder="192.168.18.150" required></div>
-<div class="col-md-2"><label class="form-label">Porta destino</label><input class="form-control" type="number" min="1" max="65535" name="internal_port" required></div>
+<div class="col-md-3"><label class="form-label">Nome</label><input class="form-control" name="name" value="{{ selected.get('name', '') }}" placeholder="Ex.: Câmera"></div>
+<div class="col-md-2"><label class="form-label">Protocolo</label><select class="form-select" name="protocol"><option value="tcp" {{ 'selected' if selected.get('protocol', 'tcp') == 'tcp' }}>TCP</option><option value="udp" {{ 'selected' if selected.get('protocol') == 'udp' }}>UDP</option></select></div>
+<div class="col-md-2"><label class="form-label">Porta WAN</label><input class="form-control" type="number" min="1" max="65535" name="external_port" value="{{ selected.get('external_port', '') }}" required></div>
+<div class="col-md-3"><label class="form-label">IP destino</label><input class="form-control" name="internal_ip" value="{{ selected.get('internal_ip', '') }}" placeholder="IP do aparelho na LAN" required></div>
+<div class="col-md-2"><label class="form-label">Porta destino</label><input class="form-control" type="number" min="1" max="65535" name="internal_port" value="{{ selected.get('internal_port', '') }}" required></div>
 </div>
-<div class="mt-3"><label><input type="checkbox" name="enabled" checked> Ativo</label></div>
-<button class="btn btn-primary mt-3">Adicionar</button>
+<div class="mt-3"><label><input type="checkbox" name="enabled" {{ 'checked' if selected.get('enabled', True) }}> Ativo</label></div>
+<button class="btn btn-primary mt-3">{{ "Salvar alterações" if selected.get("id") else "Adicionar" }}</button>
+{% if selected.get("id") %}<a class="btn btn-outline-secondary mt-3" href="{{ url_for('nat_page') }}">Cancelar edição</a>{% endif %}
 </form>
 </div></div>
 
+<p class="text-muted">Acesse pelo IP WAN do roteador e pela porta externa. O aparelho de destino deve usar este roteador como gateway. As portas 5000 e 5050 são reservadas ao gerenciamento.</p>
 <h4>Redirecionamentos</h4>
 <div class="card shadow-sm"><div class="card-body">
 <table class="table align-middle">
@@ -43,8 +46,8 @@
 <tr>
 <td>{{ r.name }}</td><td>{{ r.protocol|upper }}</td><td>{{ r.external_port }}</td>
 <td>{{ r.internal_ip }}:{{ r.internal_port }}</td>
-<td>{% if r.download_mbps|int > 0 or r.upload_mbps|int > 0 %}<span class="badge text-bg-success">Limite ativo</span>{% else %}<span class="badge text-bg-secondary">Sem limite</span>{% endif %}</td>
-<td><form method="POST" action="/nat/forward/delete"><input type="hidden" name="id" value="{{ r.id }}"><button class="btn btn-sm btn-danger" onclick="return confirm('Excluir?')">Excluir</button></form></td>
+<td>{% if r.enabled %}<span class="badge text-bg-success">Ativo</span>{% else %}<span class="badge text-bg-secondary">Inativo</span>{% endif %}</td>
+<td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('nat_page', edit=r.id) }}#rule-form">Editar</a> <form class="d-inline" method="POST" action="/nat/forward/delete"><input type="hidden" name="id" value="{{ r.id }}"><button class="btn btn-sm btn-danger" onclick="return confirm('Excluir?')">Excluir</button></form></td>
 </tr>
 {% else %}
 <tr><td colspan="6" class="text-center text-muted">Nenhum redirecionamento.</td></tr>

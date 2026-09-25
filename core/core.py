@@ -4,6 +4,9 @@ import json
 import ipaddress
 import subprocess
 import signal
+import time
+import uuid
+from threading import RLock
 
 from flask import Flask, jsonify, request
 
@@ -14,6 +17,8 @@ DATA = BASE + "/data"
 CONFIG = BASE + "/config"
 
 STATE_FILE = DATA + "/router_state.json"
+RESERVATIONS_FILE = DATA + "/dhcp_reservations.json"
+NETWORK_LOCK = RLock()
 
 os.makedirs(DATA, exist_ok=True)
 os.makedirs(CONFIG + "/dnsmasq", exist_ok=True)
@@ -643,11 +648,13 @@ def rebuild_network_rules():
         "net.ipv4.ip_forward=1"
     ])
 
+    local_routes = prefer_connected_routes()
     nat_result = rebuild_nat()
 
     forward_result = rebuild_forward()
 
     return {
+        "local_routes": local_routes,
         "nat": nat_result,
         "forward": forward_result
     }
@@ -657,6 +664,82 @@ def rebuild_network_rules():
 # ============================================================
 # DHCP
 # ============================================================
+
+def prefer_connected_routes():
+    """Keep directly connected WAN/LAN traffic ahead of imported VPN routes."""
+    state = load_state()
+    interfaces = set(state.get("lans", {})) | {state.get("wan")}
+    routes = run(["ip", "-j", "-4", "route", "show", "table", "main", "scope", "link"])
+    rules = run(["ip", "-j", "-details", "-4", "rule", "show"])
+    if not routes["success"] or not rules["success"]:
+        return {"success": False, "message": "Não foi possível consultar as rotas locais."}
+    try:
+        desired = {str(ipaddress.ip_network(r["dst"])) for r in json.loads(routes["stdout"])
+                   if r.get("dev") in interfaces and r.get("dst") != "default"
+                   and "linkdown" not in r.get("flags", [])}
+        owned = set()
+        for rule in json.loads(rules["stdout"]):
+            if (rule.get("priority") == 2500 and str(rule.get("protocol")) == "242"
+                    and str(rule.get("table")) in ("main", "254")):
+                destination = rule.get("dst", "0.0.0.0")
+                if "/" not in destination:
+                    destination += "/" + str(rule.get("dstlen", 32))
+                owned.add(str(ipaddress.ip_network(destination)))
+    except (ValueError, KeyError, TypeError):
+        return {"success": False, "message": "Resposta inválida ao consultar rotas locais."}
+    for operation, networks in (("add", desired - owned), ("del", owned - desired)):
+        for network in sorted(networks):
+            result = run(["ip", "-4", "rule", operation, "priority", "2500", "to",
+                          network, "table", "main", "protocol", "242"])
+            if not result["success"]:
+                return {"success": False, "message": "Falha ao priorizar a rede local: " + result["stderr"]}
+    return {"success": True, "networks": sorted(desired)}
+
+
+def reservation_lines(interface, reservations):
+    lines = ["# BEGIN NANOTECH DHCP RESERVATIONS"]
+    for item in reservations:
+        if item["interface"] == interface:
+            value = item["mac"] + "," + item["ip"]
+            if item.get("hostname"):
+                value += "," + item["hostname"]
+            lines.append("dhcp-host=" + value)
+    lines.append("# END NANOTECH DHCP RESERVATIONS")
+    return "\n".join(lines) + "\n"
+
+
+def install_dhcp_config(interface, content):
+    """Validate before replacing; restart only this DHCP instance, with rollback."""
+    conf = CONFIG + "/dnsmasq/" + interface + ".conf"
+    temporary = conf + ".tmp"
+    previous = None
+    if os.path.exists(conf):
+        with open(conf) as source:
+            previous = source.read()
+    with open(temporary, "w") as target:
+        target.write(content)
+    check = run(["dnsmasq", "--test", "--conf-file=" + temporary])
+    if not check["success"]:
+        os.unlink(temporary)
+        return {"success": False, "message": "Configuração DHCP inválida: " + check["stderr"]}
+    os.makedirs("/run/linux-router", exist_ok=True)
+    stop_dhcp(interface)
+    # Wait for the daemon to release its listening sockets before starting another.
+    time.sleep(0.2)
+    os.replace(temporary, conf)
+    result = run(["dnsmasq", "--conf-file=" + conf])
+    if result["success"]:
+        return {"success": True}
+    if previous is not None:
+        with open(temporary, "w") as target:
+            target.write(previous)
+        os.replace(temporary, conf)
+        restored = run(["dnsmasq", "--conf-file=" + conf])
+        suffix = " Configuração anterior restaurada." if restored["success"] else " Falha também ao reativar a configuração anterior."
+    else:
+        os.unlink(conf)
+        suffix = ""
+    return {"success": False, "message": "Falha ao iniciar DHCP: " + result["stderr"] + suffix}
 
 def stop_dhcp(interface):
 
@@ -695,71 +778,20 @@ def start_dhcp(
     dns
 ):
 
-    stop_dhcp(interface)
-
-    conf = (
-        CONFIG
-        + "/dnsmasq/"
-        + interface
-        + ".conf"
-    )
-
-    pidfile = (
-        "/run/linux-router/"
-        + interface
-        + ".dnsmasq.pid"
-    )
-
-    leasefile = (
-        DATA
-        + "/"
-        + interface
-        + ".leases"
-    )
-
-    content = f"""
-interface={interface}
+    conf_network = load_state().get("lans", {}).get(interface, {}).get("address", gateway + "/24")
+    netmask = str(ipaddress.ip_interface(conf_network).network.netmask)
+    content = f"""interface={interface}
 bind-interfaces
 except-interface=lo
-dhcp-range={start},{end},255.255.255.0,12h
+dhcp-range={start},{end},{netmask},12h
 dhcp-option=3,{gateway}
 dhcp-option=6,{dns}
 dhcp-authoritative
-dhcp-leasefile={leasefile}
-pid-file={pidfile}
+dhcp-leasefile={DATA}/{interface}.leases
+pid-file=/run/linux-router/{interface}.dnsmasq.pid
 """
-
-    with open(conf, "w") as f:
-        f.write(content)
-
-    test = run([
-        "dnsmasq",
-        "--test",
-        "--conf-file=" + conf
-    ])
-
-    if not test["success"]:
-
-        return {
-            "success": False,
-            "message": test["stderr"]
-        }
-
-    result = run([
-        "dnsmasq",
-        "--conf-file=" + conf
-    ])
-
-    if not result["success"]:
-
-        return {
-            "success": False,
-            "message": result["stderr"]
-        }
-
-    return {
-        "success": True
-    }
+    content += reservation_lines(interface, nr_load(RESERVATIONS_FILE, []))
+    return install_dhcp_config(interface, content)
 
 
 
@@ -1432,6 +1464,122 @@ def nr_save(path, data):
         json.dump(data, f, indent=4)
     os.replace(tmp, path)
 
+
+def validate_reservation(data, reservations):
+    interface = str(data.get("interface", "")).strip()
+    lan = load_state().get("lans", {}).get(interface)
+    if not valid_interface(interface) or not lan:
+        raise ValueError("Escolha uma interface LAN cadastrada.")
+    mac = str(data.get("mac", "")).strip().lower().replace("-", ":")
+    if (not re.fullmatch(r"(?:[0-9a-f]{2}:){5}[0-9a-f]{2}", mac)
+            or mac == "00:00:00:00:00:00" or int(mac[:2], 16) & 1):
+        raise ValueError("Informe um MAC válido de dispositivo (unicast).")
+    try:
+        address = ipaddress.IPv4Address(str(data.get("ip", "")).strip())
+        gateway = ipaddress.IPv4Interface(lan["address"])
+    except (ValueError, KeyError):
+        raise ValueError("Informe um endereço IPv4 válido.")
+    if address not in gateway.network or address in (
+            gateway.ip, gateway.network.network_address, gateway.network.broadcast_address):
+        raise ValueError("O IP deve pertencer à LAN e não pode ser o gateway, rede ou broadcast.")
+    hostname = str(data.get("hostname", "")).strip()
+    if hostname and not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?", hostname):
+        raise ValueError("Nome inválido: use até 63 letras, números ou hífens.")
+    rid = str(data.get("id", "")).strip()
+    if rid and not any(r.get("id") == rid for r in reservations):
+        raise ValueError("Reserva não encontrada. Atualize a página.")
+    for item in reservations:
+        if item.get("id") == rid:
+            continue
+        if item.get("interface") == interface and (item.get("mac") == mac or item.get("ip") == str(address)):
+            raise ValueError("Esse MAC ou IP já possui uma reserva nesta LAN.")
+    for lease in get_dhcp_devices():
+        expires = int(lease.get("expires", "0") or 0)
+        if (lease.get("interface") == interface and lease.get("ip") == str(address)
+                and lease.get("mac") != mac and (expires == 0 or expires > time.time())):
+            raise ValueError("Esse IP ainda está concedido a outro MAC pelo DHCP.")
+    return {"id": rid or uuid.uuid4().hex, "interface": interface,
+            "mac": mac, "ip": str(address), "hostname": hostname}
+
+
+def save_reservations(reservations, previous):
+    state = load_state()
+    changed = {r["interface"] for r in reservations + previous
+               if r not in reservations or r not in previous}
+    configs = {}
+    for interface in changed:
+        if not state.get("lans", {}).get(interface, {}).get("dhcp"):
+            continue
+        conf = CONFIG + "/dnsmasq/" + interface + ".conf"
+        if not os.path.exists(conf):
+            return {"success": False, "message": "Configure o DHCP da LAN antes de aplicar reservas."}
+        with open(conf) as source:
+            original = source.read()
+        cleaned = re.sub(r"(?m)^# BEGIN NANOTECH DHCP RESERVATIONS\n.*?^# END NANOTECH DHCP RESERVATIONS\n?",
+                         "", original, flags=re.S)
+        content = cleaned.rstrip() + "\n" + reservation_lines(interface, reservations)
+        check_path = conf + ".check"
+        try:
+            with open(check_path, "w") as target:
+                target.write(content)
+            check = run(["dnsmasq", "--test", "--conf-file=" + check_path])
+        finally:
+            if os.path.exists(check_path):
+                os.unlink(check_path)
+        if not check["success"]:
+            return {"success": False, "message": "Reservas inválidas no DHCP: " + check["stderr"]}
+        configs[interface] = (original, content)
+    applied = []
+    for interface, (original, content) in configs.items():
+        result = install_dhcp_config(interface, content)
+        if not result["success"]:
+            for rollback in reversed(applied):
+                restored = install_dhcp_config(rollback, configs[rollback][0])
+                if not restored["success"]:
+                    result["message"] += " Falha ao restaurar DHCP de " + rollback + "."
+            return result
+        applied.append(interface)
+    try:
+        nr_save(RESERVATIONS_FILE, reservations)
+    except OSError as error:
+        failures = []
+        for interface in reversed(applied):
+            if not install_dhcp_config(interface, configs[interface][0])["success"]:
+                failures.append(interface)
+        return {"success": False, "message": "Falha ao salvar reservas: " + str(error)
+                + ("; falha ao restaurar DHCP: " + ", ".join(failures) if failures else "")}
+    return {"success": True, "message": "Reservas atualizadas. Renove o DHCP do aparelho para receber o endereço reservado."}
+
+
+@app.route("/api/dhcp/reservations")
+def dhcp_reservations():
+    return jsonify({"success": True, "reservations": nr_load(RESERVATIONS_FILE, [])})
+
+
+@app.route("/api/dhcp/reservation", methods=["POST"])
+def dhcp_reservation_save():
+    with NETWORK_LOCK:
+        data = request.get_json(silent=True) or {}
+        previous = nr_load(RESERVATIONS_FILE, [])
+        try:
+            item = validate_reservation(data, previous)
+        except ValueError as error:
+            return jsonify({"success": False, "message": str(error)}), 400
+        reservations = [r for r in previous if r.get("id") != item["id"]] + [item]
+        result = save_reservations(reservations, previous)
+        return jsonify(result), 200 if result["success"] else 500
+
+
+@app.route("/api/dhcp/reservation/delete", methods=["POST"])
+def dhcp_reservation_delete():
+    with NETWORK_LOCK:
+        rid = str((request.get_json(silent=True) or {}).get("id", ""))
+        previous = nr_load(RESERVATIONS_FILE, [])
+        if not any(r.get("id") == rid for r in previous):
+            return jsonify({"success": False, "message": "Reserva não encontrada."}), 404
+        result = save_reservations([r for r in previous if r.get("id") != rid], previous)
+        return jsonify(result), 200 if result["success"] else 500
+
 def nr_ipv4(value):
     try:
         return ipaddress.ip_address(value).version == 4
@@ -1446,6 +1594,9 @@ def nr_port(value):
         return False
 
 def nr_rebuild_port_forwards():
+    local_routes = prefer_connected_routes()
+    if not local_routes["success"]:
+        return local_routes
     state = load_state()
     wan = state.get("wan")
     rules = nr_load(PORT_FORWARD_FILE, [])
@@ -1466,7 +1617,9 @@ def nr_rebuild_port_forwards():
                         break
             if not number:
                 break
-            run(["iptables", "-D", "DOCKER-USER", number])
+            removed = run(["iptables", "-D", "DOCKER-USER", number])
+            if not removed["success"]:
+                return {"success": False, "message": "Falha removendo regra NAT anterior: " + removed["stderr"]}
 
     if not active:
         return {"success": True, "message": "Nenhum Port Forward ativo."}
@@ -1509,6 +1662,19 @@ def nr_rebuild_port_forwards():
             "-m", "conntrack", "--ctstate", "NEW,ESTABLISHED,RELATED",
             "-m", "comment", "--comment", "nanotech-pf",
             "-j", "ACCEPT"
+        ])
+        if not r["success"]:
+            return r
+        position += 1
+
+        # Permit the established return path even when Docker sets FORWARD DROP.
+        r = run([
+            "iptables", "-I", "DOCKER-USER", str(position),
+            "-o", wan, "-p", proto, "-s", internal_ip,
+            "--sport", internal_port,
+            "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED",
+            "--ctdir", "REPLY", "--ctorigdstport", external_port,
+            "-m", "comment", "--comment", "nanotech-pf", "-j", "ACCEPT"
         ])
         if not r["success"]:
             return r
@@ -1606,10 +1772,12 @@ def nr_pf_save():
         return jsonify({"success": False, "message": "Porta inválida."}), 400
 
     rules = nr_load(PORT_FORWARD_FILE, [])
+    previous = list(rules)
     rid = str(data.get("id", "")).strip()
+    if rid and not any(str(r.get("id")) == rid for r in rules):
+        return jsonify({"success": False, "message": "Regra não encontrada. Atualize a página."}), 404
     if not rid:
-        import time
-        rid = str(int(time.time() * 1000))
+        rid = uuid.uuid4().hex
 
     new_rule = {
         "id": rid,
@@ -1621,22 +1789,41 @@ def nr_pf_save():
         "enabled": bool(data.get("enabled", True))
     }
 
+    if any(str(r.get("id")) != rid and r.get("protocol") == proto
+           and r.get("external_port") == new_rule["external_port"] for r in rules):
+        return jsonify({"success": False, "message": "Já existe uma regra com esse protocolo e porta externa."}), 409
+    if proto == "tcp" and new_rule["external_port"] in (5000, 5050):
+        return jsonify({"success": False, "message": "Essa porta está reservada para o gerenciamento do roteador."}), 400
+    address = ipaddress.IPv4Address(internal_ip)
+    lans = [ipaddress.IPv4Interface(lan["address"]) for lan in load_state().get("lans", {}).values()]
+    if not any(address in lan.network and address not in (lan.ip, lan.network.network_address,
+               lan.network.broadcast_address) for lan in lans):
+        return jsonify({"success": False, "message": "O destino deve ser um aparelho de uma LAN cadastrada."}), 400
+
     rules = [r for r in rules if str(r.get("id")) != rid]
     rules.append(new_rule)
+    return persist_port_forwards(rules, previous)
+
+
+def persist_port_forwards(rules, previous):
     nr_save(PORT_FORWARD_FILE, rules)
     result = nr_rebuild_port_forwards()
-    return jsonify({"success": result.get("success", False),
-                    "message": result.get("message", "Salvo.")})
+    if not result.get("success"):
+        nr_save(PORT_FORWARD_FILE, previous)
+        restored = nr_rebuild_port_forwards()
+        message = result.get("message") or result.get("stderr") or "Falha aplicando NAT."
+        message += " Configuração anterior restaurada." if restored.get("success") else " Falha ao reaplicar configuração anterior."
+        return jsonify({"success": False, "message": message}), 500
+    return jsonify({"success": True, "message": "Redirecionamentos atualizados."})
 
 @app.route("/api/nat/forward/delete", methods=["POST"])
 def nr_pf_delete():
     data = request.get_json(silent=True) or {}
     rid = str(data.get("id", ""))
-    rules = [r for r in nr_load(PORT_FORWARD_FILE, [])
-             if str(r.get("id")) != rid]
-    nr_save(PORT_FORWARD_FILE, rules)
-    nr_rebuild_port_forwards()
-    return jsonify({"success": True, "message": "Redirecionamento removido."})
+    previous = nr_load(PORT_FORWARD_FILE, [])
+    if not any(str(r.get("id")) == rid for r in previous):
+        return jsonify({"success": False, "message": "Regra não encontrada."}), 404
+    return persist_port_forwards([r for r in previous if str(r.get("id")) != rid], previous)
 
 @app.route("/api/bandwidth")
 def nr_bw_list():

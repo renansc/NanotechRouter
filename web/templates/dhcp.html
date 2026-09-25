@@ -1,64 +1,44 @@
 {% extends "base.html" %}
-
 {% block content %}
-
-<h2>DHCP / Clientes</h2>
-
-<table class="table table-striped bg-white mt-4">
-
-<thead>
-
-<tr>
-
-<th>Interface</th>
-<th>IP</th>
-<th>MAC</th>
-<th>Hostname</th>
-
-</tr>
-
-</thead>
-
-<tbody>
-
-{% for c in leases.get("leases",[]) %}
-
-<tr>
-
-<td>
-{{ c.interface }}
-</td>
-
-<td>
-{{ c.ip }}
-</td>
-
-<td>
-{{ c.mac }}
-</td>
-
-<td>
-{{ c.hostname }}
-</td>
-
-</tr>
-
-{% else %}
-
-<tr>
-
-<td colspan="4">
-
-Nenhum cliente DHCP encontrado.
-
-</td>
-
-</tr>
-
+<h2>DHCP / Reservas de IP</h2>
+<p class="text-muted">Reserve um endereço para o MAC do aparelho. A reserva passa a valer quando ele renovar o DHCP; aparelhos com IP manual não mudam automaticamente.</p>
+{% set lans = data.get('configuration', {}).get('lans', {}) %}
+{% for interface, lan in lans.items() %}
+<p><strong>{{ interface }}</strong>: {{ lan.address }} — DHCP {{ 'ativo' if lan.dhcp else 'desativado' }}.
+<a href="http://{{ lan.address.split('/')[0] }}:5000">Abrir painel pelo gateway desta LAN</a></p>
 {% endfor %}
-
-</tbody>
-
-</table>
-
+<div class="card shadow-sm mb-4" id="reservation-form"><div class="card-body">
+<h4>{{ 'Editar reserva' if selected.get('id') else 'Nova reserva' }}</h4>
+<form method="POST" action="{{ url_for('dhcp_reservation_save') }}">
+<input type="hidden" name="id" value="{{ selected.get('id', '') }}">
+<div class="row g-3">
+<div class="col-md-2"><label class="form-label" for="reservation-interface">LAN</label>
+<select class="form-select" id="reservation-interface" name="interface" required>
+{% for interface, lan in lans.items() %}<option value="{{ interface }}" {{ 'selected' if selected.get('interface') == interface }}>{{ interface }} — {{ lan.address }}</option>{% endfor %}
+</select></div>
+<div class="col-md-3"><label class="form-label" for="reservation-mac">MAC do aparelho</label><input class="form-control" id="reservation-mac" name="mac" value="{{ selected.get('mac', '') }}" placeholder="02:00:00:00:00:01" required></div>
+<div class="col-md-3"><label class="form-label" for="reservation-ip">IP reservado</label><input class="form-control" id="reservation-ip" name="ip" value="{{ selected.get('ip', '') }}" required></div>
+<div class="col-md-4"><label class="form-label" for="reservation-hostname">Nome (opcional)</label><input class="form-control" id="reservation-hostname" name="hostname" maxlength="63" value="{{ selected.get('hostname', '') }}" placeholder="impressora-escritorio"></div>
+</div>
+<p class="text-muted mt-2 mb-2">Use um IP livre da LAN e o MAC utilizado nessa rede. Não use o gateway. Se o aparelho troca o MAC privado, a reserva não o acompanhará.</p>
+<button class="btn btn-primary" {{ 'disabled' if not lans }}>Salvar reserva</button>
+{% if selected.get('id') %}<a class="btn btn-outline-secondary" href="{{ url_for('dhcp') }}">Cancelar edição</a>{% endif %}
+</form></div></div>
+<h4>Reservas cadastradas</h4>
+<div class="table-responsive"><table class="table table-striped bg-white align-middle">
+<thead><tr><th>LAN</th><th>IP</th><th>MAC</th><th>Nome</th><th>Ações</th></tr></thead><tbody>
+{% for r in reservations.get('reservations', []) %}
+<tr><td>{{ r.interface }}</td><td>{{ r.ip }}</td><td><code>{{ r.mac }}</code></td><td>{{ r.hostname or '—' }}</td>
+<td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('dhcp', edit=r.id) }}#reservation-form">Editar</a>
+<form class="d-inline" method="POST" action="{{ url_for('dhcp_reservation_delete') }}"><input type="hidden" name="id" value="{{ r.id }}"><button class="btn btn-sm btn-outline-danger" onclick="return confirm('Remover esta reserva? O aparelho voltará a receber IP dinâmico ao renovar o DHCP.')">Excluir</button></form></td></tr>
+{% else %}<tr><td colspan="5" class="text-muted">Nenhuma reserva cadastrada.</td></tr>{% endfor %}
+</tbody></table></div>
+<h4>Clientes DHCP</h4>
+<div class="table-responsive"><table class="table table-striped bg-white align-middle">
+<thead><tr><th>LAN</th><th>IP atual</th><th>MAC</th><th>Nome informado</th><th></th></tr></thead><tbody>
+{% for c in leases.get('leases', []) %}
+<tr><td>{{ c.interface }}</td><td>{{ c.ip }}</td><td><code>{{ c.mac }}</code></td><td>{{ c.hostname }}</td>
+<td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('dhcp', interface=c.interface, mac=c.mac, ip=c.ip, hostname=(c.hostname if c.hostname != '*' else '')) }}#reservation-form">Reservar IP</a></td></tr>
+{% else %}<tr><td colspan="5" class="text-muted">Nenhum cliente DHCP encontrado.</td></tr>{% endfor %}
+</tbody></table></div>
 {% endblock %}

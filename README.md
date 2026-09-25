@@ -3,7 +3,7 @@
 Gerenciador de roteador Linux com interface web para WAN/LAN, DHCP,
 dispositivos, apelidos de portas, NAT, redirecionamento de portas e controle
 de banda por IPv4. Código extraído da instalação em `/opt/linux-router`,
-incluindo a correção do controle de banda de 24/09/2026.
+incluindo a correção do controle de banda e as reservas DHCP/edição de NAT.
 
 ## Estrutura
 
@@ -13,6 +13,7 @@ incluindo a correção do controle de banda de 24/09/2026.
 - `deploy/nanotechrouter-safe-restore`: cópia do utilitário já instalado no host.
 - `tests/`: testes isolados da interface, sem alterar a rede.
 - `docs/CONTROLE_DE_BANDA.md`: diagnóstico, correção e validação do limite.
+- `docs/REDE_NAT_DHCP.md`: reservas, edição de NAT, rotas locais e acesso ao painel.
 - `docs/ACESSOS.md`: catálogo das funções e das rotas existentes.
 
 `data/`, `config/`, bancos, leases DHCP, logs, backups, ambientes virtuais,
@@ -97,3 +98,11 @@ controlada. O core permanece em loopback. Consulte o [catálogo](docs/ACESSOS.md
 VLANs, Firewall, Rotas e Sistema têm atalhos de interface ainda sem fluxo
 completo implementado. O arquivo VERSION e a versão da API são metadados legados
 da instalação original e ainda não representam um processo de releases.
+
+## Reservas e NAT (25/09/2026)
+
+DHCP / Reservas de IP permite cadastrar, editar e remover reservas MAC/IP.
+O cliente aplica a reserva ao renovar o DHCP. NAT / Port Forward permite editar
+regras existentes sem duplicá-las; o retorno às redes diretamente conectadas
+recebe prioridade sobre rotas VPN sobrepostas. O painel continua na porta 5000.
+Detalhes, validações, persistência e testes: [Rede, NAT e DHCP](docs/REDE_NAT_DHCP.md).
