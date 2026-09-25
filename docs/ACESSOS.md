@@ -12,7 +12,7 @@ a conta local. Implementação e testes: [Administração e segurança](SEGURANC
 
 Recurso | Acesso
 --- | ---
-Interfaces/WAN/LAN, DHCP, dispositivos/apelidos, NAT, banda | admin integral
+Interfaces/WAN/LAN, DHCP, dispositivos/apelidos, NAT/loopback, banda | admin integral
 VLANs, rotas, firewall/regras/filtros/listas | admin integral
 Sistema/alterar senha | admin com senha atual
 Sistema/reiniciar | admin, senha atual e confirmação REINICIAR
@@ -50,8 +50,8 @@ Core | token interno; não acessível diretamente pela rede
 | core | POST | `/api/dhcp/reservation/delete` | `dhcp_reservation_delete` |
 | core | GET | `/api/nat/status` | `nr_nat_status` |
 | core | GET | `/api/nat/forwards` | `nr_pf_list` |
-| core | POST | `/api/nat/forward` | `nr_pf_save` |
-| core | POST | `/api/nat/forward/delete` | `nr_pf_delete` |
+| core | POST | `/api/nat/forward` | `nr_pf_save` (WAN e loopback LAN) |
+| core | POST | `/api/nat/forward/delete` | `nr_pf_delete` (remove WAN e loopback LAN) |
 | core | GET | `/api/bandwidth` | `nr_bw_list` |
 | core | POST | `/api/bandwidth/rule` | `nr_bw_save` |
 | core | POST | `/api/bandwidth/delete` | `nr_bw_delete` |

@@ -110,3 +110,7 @@ O cliente aplica a reserva ao renovar o DHCP. NAT / Port Forward permite editar
 regras existentes sem duplicá-las; o retorno às redes diretamente conectadas
 recebe prioridade sobre rotas VPN sobrepostas. O painel continua na porta 5000.
 Detalhes, validações, persistência e testes: [Rede, NAT e DHCP](docs/REDE_NAT_DHCP.md).
+
+O NAT também oferece loopback: clientes LAN podem usar a porta externa no IP
+WAN ou no gateway LAN do roteador. O retorno na mesma sub-rede é traduzido
+para manter a conexão. As regras de isolamento do firewall continuam valendo.

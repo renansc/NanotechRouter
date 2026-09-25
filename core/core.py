@@ -1654,6 +1654,18 @@ def nr_rebuild_port_forwards():
     if not r["success"]:
         return r
 
+    r = run([
+        "nft", "add", "chain", "ip", "nanotechrouter_pf", "postrouting",
+        "{", "type", "nat", "hook", "postrouting", "priority", "100",
+        ";", "policy", "accept", ";", "}"
+    ])
+    if not r["success"]:
+        return r
+    lans = {}
+    for interface, config in state.get("lans", {}).items():
+        if interface_exists(interface):
+            lans[interface] = ipaddress.IPv4Interface(config["address"]).network
+
     position = 1
 
     for rule in active:
@@ -1695,7 +1707,51 @@ def nr_rebuild_port_forwards():
             return r
         position += 1
 
-    return {"success": True, "message": "Port Forward aplicado."}
+        # Hairpin applies only to managed LAN sources addressing this router.
+        # Direct server access and arbitrary Internet destinations are untouched.
+        target_interface = next((name for name, network in lans.items()
+                                 if ipaddress.IPv4Address(internal_ip) in network), None)
+        if not target_interface:
+            continue
+        for interface, network in lans.items():
+            r = run([
+                "nft", "add", "rule", "ip", "nanotechrouter_pf", "prerouting",
+                "iifname", interface, "ip", "saddr", str(network),
+                "fib", "daddr", "type", "local", proto, "dport", external_port,
+                "counter", "dnat", "to", internal_ip + ":" + internal_port
+            ])
+            if not r["success"]:
+                return r
+            if interface == target_interface:
+                # Without SNAT, a same-subnet server replies straight to the client
+                # with its internal address, which does not match the connection.
+                r = run([
+                    "nft", "add", "rule", "ip", "nanotechrouter_pf", "postrouting",
+                    "iifname", interface, "oifname", target_interface,
+                    "ip", "saddr", str(network), "ip", "daddr", internal_ip,
+                    proto, "dport", internal_port, "ct", "status", "dnat",
+                    "ct", "original", "proto-dst", external_port,
+                    "counter", "masquerade"
+                ])
+                if not r["success"]:
+                    return r
+            for match in (
+                ["-i", interface, "-o", target_interface, "-p", proto,
+                 "-s", str(network), "-d", internal_ip, "--dport", internal_port,
+                 "-m", "conntrack", "--ctstate", "DNAT", "--ctdir", "ORIGINAL",
+                 "--ctorigdstport", external_port],
+                ["-i", target_interface, "-o", interface, "-p", proto,
+                 "-s", internal_ip, "-d", str(network), "--sport", internal_port,
+                 "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED",
+                 "--ctdir", "REPLY", "--ctorigdstport", external_port]
+            ):
+                r = run(["iptables", "-I", "DOCKER-USER", str(position)] + match +
+                        ["-m", "comment", "--comment", "nanotech-pf", "-j", "ACCEPT"])
+                if not r["success"]:
+                    return r
+                position += 1
+
+    return {"success": True, "message": "Port Forward e NAT loopback aplicados."}
 
 def nr_apply_qos():
     state = load_state()

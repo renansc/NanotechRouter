@@ -33,8 +33,8 @@ with patch.object(core, 'load_state', return_value=state), \
         result = core.nr_rebuild_port_forwards()
         assert result['success'], result
     installed = subprocess.check_output(['iptables', '-S', 'DOCKER-USER'], text=True)
-    assert installed.count('--ctdir REPLY') == 2, installed
-    assert installed.count('-A DOCKER-USER') == 4, installed
+    assert installed.count('--ctdir REPLY') == 4, installed
+    assert installed.count('-A DOCKER-USER') == 8, installed
     rules.clear()
     assert core.nr_rebuild_port_forwards()['success']
     installed = subprocess.check_output(['iptables', '-S', 'DOCKER-USER'], text=True)

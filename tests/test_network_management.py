@@ -163,6 +163,22 @@ class CoreManagementTests(unittest.TestCase):
         self.assertTrue(any('--ctdir' in c and 'REPLY' in c and '--ctorigdstport' in c
                             and '8080' in c and '--sport' in c and '80' in c for c in commands))
 
+    def test_hairpin_is_local_destination_only_and_snat_requires_dnat(self):
+        core.nr_save(core.PORT_FORWARD_FILE, [RULE])
+        with patch.object(core, 'prefer_connected_routes', return_value=OK), patch.object(core, 'interface_exists', return_value=True):
+            self.assertTrue(core.nr_rebuild_port_forwards()['success'])
+        commands = [call.args[0] for call in self.command.call_args_list]
+        hairpin = next(c for c in commands if 'fib' in c)
+        self.assertIn('local', hairpin)
+        self.assertIn('eth1', hairpin)
+        self.assertIn('192.0.2.0/24', hairpin)
+        snat = next(c for c in commands if 'masquerade' in c)
+        self.assertIn('dnat', snat)
+        self.assertIn('proto-dst', snat)
+        self.assertIn('8080', snat)
+        self.assertIn('192.0.2.3', snat)
+        self.assertTrue(any('--ctstate' in c and 'DNAT' in c and 'ORIGINAL' in c for c in commands))
+
 
 class WebManagementTests(unittest.TestCase):
     def setUp(self):

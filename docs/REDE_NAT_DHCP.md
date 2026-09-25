@@ -44,8 +44,31 @@ O DNAT é aplicado à entrada WAN. A chain DOCKER-USER recebe liberação do flu
 de entrada e do retorno estabelecido, limitado à direção REPLY e porta externa
 original no conntrack, inclusive
 quando a política FORWARD do Docker é DROP. O aparelho interno deve usar o
-roteador como gateway. Este fluxo não implementa NAT loopback/hairpin para
-clientes LAN acessarem a porta externa; na LAN, usar o IP interno do serviço.
+roteador como gateway.
+
+### NAT loopback / hairpin
+
+Clientes de LANs cadastradas também podem acessar a porta externa usando o IP
+WAN ou um gateway IPv4 do próprio roteador. O DNAT interno exige origem da rede
+LAN e destino local ao roteador (`fib daddr type local`); não intercepta acesso
+a outros servidores/endereços externos na mesma porta. O acesso direto ao IP e
+à porta originais do aparelho continua funcionando.
+
+Se cliente e servidor estão na mesma LAN, uma regra SNAT/masquerade, limitada à
+conexão já redirecionada, faz o retorno passar pelo roteador. Nesse caminho, o
+servidor enxerga o IP do gateway como origem. Entre LANs diferentes, o endereço
+de origem é preservado. A DOCKER-USER permite somente os fluxos traduzidos e
+seus retornos, inclusive quando FORWARD está DROP. As regras de isolamento nft
+da aba Firewall continuam anteriores e podem bloquear o serviço de destino.
+
+O loopback acompanha automaticamente cada regra NAT ativa, sua edição/exclusão
+e a restauração no boot. Não há nova permissão nem endpoint público; continuam
+valendo login admin, CSRF e token do core. Requisições geradas pelo próprio
+roteador não passam por PREROUTING e não fazem parte desse acesso por clientes.
+
+A causa de funcionar pela WAN e falhar na LAN era a restrição anterior a
+`iifname WAN`, sem DNAT/SNAT de retorno interno. Referência:
+[Netfilter — Destination NAT Onto the Same Network](https://www.nftables.org/documentation/HOWTO/NAT-HOWTO-10.html).
 
 ## Rotas locais e Tailscale
 
@@ -106,3 +129,12 @@ como o serviço interno acessado pela porta externa. Uma tentativa de reservar
 o próprio gateway foi recusada pelo core com HTTP 400. A interface foi
 inspecionada no Chrome. Nenhuma reserva de aparelho real foi criada durante a
 validação, e não foi preciso reiniciar interfaces nem o serviço DHCP.
+
+## Validação do loopback
+
+39 testes unitários passaram. `tests/check_hairpin_native.py` usa namespaces
+isolados com cliente/servidor na mesma rede e FORWARD DROP para provar TCP e UDP
+via gateway LAN e IP WAN, acesso WAN externo, múltiplos encaminhamentos, edição,
+desativação, reaplicação e exclusão. Também verifica que acesso direto não é
+interceptado e que um bloqueio de firewall continua funcionando. Executar com
+`sudo unshare --net core/venv/bin/python tests/check_hairpin_native.py`.
