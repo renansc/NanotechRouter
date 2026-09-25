@@ -114,3 +114,11 @@ Detalhes, validações, persistência e testes: [Rede, NAT e DHCP](docs/REDE_NAT
 O NAT também oferece loopback: clientes LAN podem usar a porta externa no IP
 WAN ou no gateway LAN do roteador. O retorno na mesma sub-rede é traduzido
 para manter a conexão. As regras de isolamento do firewall continuam valendo.
+
+## Uso no celular
+
+O menu fica recolhido no botão **Menu** em telas menores que 992 px. Ao abrir,
+é possível fechar pelo X, tocando fora ou pela tecla Escape. Nas telas menores
+que 768 px, as tabelas aparecem como fichas com rótulos e os formulários têm
+campos/botões maiores. Abas de configuração deslizam horizontalmente. O padrão
+é compartilhado por todas as páginas; permissões e operações são as mesmas.

@@ -86,3 +86,9 @@ As rotas genéricas aceitam somente as seções e operações listadas. O servid
 recusa token ausente/incorreto, entrada inválida, IDs desconhecidos e interfaces
 em uso. Testes verificam login necessário, CSRF, senha inicial, expiração por
 troca de senha, limitação de tentativas, páginas autenticadas e comandos rejeitados.
+
+O menu compartilhado tem apresentação recolhível em celular, com indicação da
+página atual, navegação por teclado e foco contido enquanto aberto. As tabelas
+usam fichas em telas pequenas. Esta adaptação é visual: não cria recursos,
+endpoints de negócio ou permissões; sessão, CSRF e token continuam valendo.
+CSS/JavaScript de apresentação são servidos pela rota estática pública existente.

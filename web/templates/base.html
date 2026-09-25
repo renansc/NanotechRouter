@@ -1,147 +1,34 @@
 <!DOCTYPE html>
-
 <html lang="pt-BR">
-
 <head>
-
 <meta charset="UTF-8">
-
-<meta name="viewport"
-content="width=device-width,initial-scale=1">
-
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#212529">
 <title>NanotechRouter</title>
-
-<link
-href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-rel="stylesheet">
-
-<style>
-
-body {
-    background:#f4f6f9;
-}
-
-.sidebar {
-    position:fixed;
-    width:240px;
-    height:100vh;
-    background:#212529;
-}
-
-.logo {
-    padding:22px;
-    font-size:20px;
-    font-weight:bold;
-    color:white;
-}
-
-.sidebar a {
-    display:block;
-    color:#ccc;
-    padding:12px 22px;
-    text-decoration:none;
-}
-
-.sidebar a:hover {
-    background:#343a40;
-    color:white;
-}
-
-.content {
-    margin-left:240px;
-    padding:30px;
-}
-
-.role-WAN {
-    font-weight:bold;
-}
-
-.role-LAN {
-    font-weight:bold;
-}
-
-.card-interface {
-    margin-bottom:20px;
-}
-
-.sidebar { overflow-y:auto; }
-@media(max-width:850px){.sidebar{position:static;width:100%;height:auto;display:flex;flex-wrap:wrap}.sidebar .logo{width:100%}.sidebar a{padding:8px 12px}.content{margin-left:0;padding:18px}.sidebar form{margin:8px}}
-</style>
-
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="{{ url_for('static', filename='app.css') }}?v=mobile1" rel="stylesheet">
+<script src="{{ url_for('static', filename='app.js') }}?v=mobile1" defer></script>
 </head>
-
 <body>
-
-<div class="sidebar">
-
-<div class="logo">
-NanotechRouter
-</div>
-
-<a href="/">
-Dashboard
-</a>
-
-<a href="/interfaces">
-Interfaces / WAN / LAN
-</a>
-
-
-<a href="/ports">
-Portas / Apelidos
-</a>
-
-<a href="/dhcp">
-DHCP / Reservas de IP
-</a>
-
-
-<a href="/devices">
-Dispositivos
-</a>
-
-<a href="/vlans">
-VLANs
-</a>
-
-<a href="/firewall">
-Firewall
-</a>
-
-<a href="/nat">NAT / Port Forward</a>
-
-<a href="/bandwidth">Controle de Banda</a>
-
-<a href="/routes">
-Rotas
-</a>
-
-<a href="/system">
-Sistema / Configuração
-</a>
-<form method="post" action="/logout" class="px-3 py-3"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-outline-light btn-sm">Sair · admin</button></form>
-
-</div>
-
-<div class="content">
-
-{% with messages=get_flashed_messages() %}
-
-{% for message in messages %}
-
-<div class="alert alert-info">
-{{ message }}
-</div>
-
+<a class="skip-link" href="#main-content">Pular para o conteúdo</a>
+<header class="mobile-header">
+<a class="mobile-brand" href="/">NanotechRouter</a>
+<button type="button" class="menu-toggle" aria-controls="main-sidebar" aria-expanded="false"><span aria-hidden="true">☰</span> Menu</button>
+</header>
+<div class="menu-backdrop" hidden></div>
+<aside class="sidebar" id="main-sidebar" aria-label="Menu principal">
+<div class="sidebar-heading"><span class="logo">NanotechRouter</span><button type="button" class="menu-close" aria-label="Fechar menu">×</button></div>
+<nav aria-label="Navegação principal">
+{% for path, label in [('/', 'Dashboard'), ('/interfaces', 'Interfaces / WAN / LAN'), ('/ports', 'Portas / Apelidos'), ('/dhcp', 'DHCP / Reservas de IP'), ('/devices', 'Dispositivos'), ('/vlans', 'VLANs'), ('/firewall', 'Firewall'), ('/nat', 'NAT / Port Forward'), ('/bandwidth', 'Controle de Banda'), ('/routes', 'Rotas'), ('/system', 'Sistema / Configuração')] %}
+<a href="{{ path }}" {% if request.path == path %}aria-current="page"{% endif %}>{{ label }}</a>
 {% endfor %}
-
-{% endwith %}
-
-{% block content %}
-{% endblock %}
-
-</div>
-
+</nav>
+<form method="post" action="/logout" class="sidebar-logout"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-outline-light">Sair · admin</button></form>
+</aside>
+<main class="content" id="main-content" tabindex="-1">
+{% with messages=get_flashed_messages() %}{% for message in messages %}<div class="alert alert-info" role="status">{{ message }}</div>{% endfor %}{% endwith %}
+{% block content %}{% endblock %}
+</main>
+<noscript><style>@media(max-width:991.98px){.sidebar{position:static;transform:none;visibility:visible;width:100%;height:auto}.mobile-header{display:none}}</style></noscript>
 </body>
-
 </html>

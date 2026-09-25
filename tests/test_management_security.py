@@ -10,6 +10,8 @@ from unittest.mock import patch
 from test_network_management import core, web, STATE, OK
 from management import Management, DEFAULT_POLICY, domain
 
+ROOT = Path(__file__).resolve().parents[1]
+
 
 class SecurityTests(unittest.TestCase):
     def setUp(self):
@@ -229,3 +231,21 @@ class AuthorizedViewsTests(unittest.TestCase):
         self.assertEqual(args['categories'], ['social', 'adult'])
         self.assertTrue(args['enabled'])
         self.assertFalse(args['dns_enabled'])
+
+    def test_shared_layout_exposes_accessible_mobile_navigation(self):
+        with patch.object(web, 'get', return_value={'success': True, 'interfaces': [],
+                                                    'configuration': {}, 'leases': []}):
+            response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'class="menu-toggle"', response.data)
+        self.assertIn(b'aria-controls="main-sidebar"', response.data)
+        self.assertIn(b'aria-current="page"', response.data)
+        self.assertIn(b'/static/app.css', response.data)
+        self.assertIn(b'/static/app.js', response.data)
+
+        css = (ROOT / 'web/static/app.css').read_text()
+        script = (ROOT / 'web/static/app.js').read_text()
+        self.assertIn('@media (max-width: 991.98px)', css)
+        self.assertIn('@media (max-width: 767.98px)', css)
+        self.assertIn("event.key === 'Escape'", script)
+        self.assertIn("table.classList.add('table-mobile')", script)
