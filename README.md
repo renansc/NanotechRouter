@@ -2,7 +2,8 @@
 
 Gerenciador de roteador Linux com interface web para WAN/LAN, DHCP,
 dispositivos, apelidos de portas, NAT, redirecionamento de portas, controle
-de banda por IPv4, VLANs, rotas estáticas, firewall e administração com login. Código extraído da instalação em `/opt/linux-router`,
+de banda por IPv4, VLANs, rotas estáticas, firewall, página local de bloqueio,
+Load Balance/failover e administração com login. Código extraído da instalação em `/opt/linux-router`,
 incluindo a correção do controle de banda e as reservas DHCP/edição de NAT.
 
 ## Estrutura
@@ -14,6 +15,7 @@ incluindo a correção do controle de banda e as reservas DHCP/edição de NAT.
 - `tests/`: testes isolados da interface, sem alterar a rede.
 - `docs/CONTROLE_DE_BANDA.md`: diagnóstico, correção e validação do limite.
 - `docs/REDE_NAT_DHCP.md`: reservas, edição de NAT, rotas locais e acesso ao painel.
+- `docs/BLOQUEIO_E_LOADBALANCE.md`: página HTTP/HTTPS, CA local, múltiplas WANs e failover.
 - `docs/ACESSOS.md`: catálogo das funções e das rotas existentes.
 
 `data/`, `config/`, bancos, leases DHCP, logs, backups, ambientes virtuais,
@@ -98,10 +100,11 @@ em hash e não é redefinida em atualizações. Configure também `ROUTER_API_TO
 aleatório no `.env` para autenticar painel/core/boot; preserve a chave existente.
 O painel permanece HTTP na porta 5000; use a rede de gestão ou Tailscale.
 
-VLANs, rotas estáticas, firewall, filtros DNS e Sistema / Configuração possuem
+VLANs, rotas estáticas, firewall, filtros DNS, página de bloqueio,
+Load Balance/failover e Sistema / Configuração possuem
 fluxos funcionais. Os novos bloqueios começam desativados e são configurados
 pelo operador na interface. Consulte [Administração e segurança](docs/SEGURANCA_VLAN_ROTAS.md)
-para uso, persistência, dependências e limites dos filtros. Versão atual: 0.5.0.
+para uso, persistência, dependências e limites dos filtros. Versão atual: 0.6.0.
 
 ## Reservas e NAT (25/09/2026)
 
@@ -114,6 +117,17 @@ Detalhes, validações, persistência e testes: [Rede, NAT e DHCP](docs/REDE_NAT
 O NAT também oferece loopback: clientes LAN podem usar a porta externa no IP
 WAN ou no gateway LAN do roteador. O retorno na mesma sub-rede é traduzido
 para manter a conexão. As regras de isolamento do firewall continuam valendo.
+
+## Página de bloqueio e Load Balance (0.6.0)
+
+Domínios bloqueados pelo filtro DNS podem apontar para uma página local em
+HTTP e HTTPS. Para HTTPS, a CA criada no próprio roteador deve ser instalada
+como confiável em cada equipamento administrado; sem isso, o navegador mostra
+erro de certificado. O Load Balance distribui novas conexões por peso ou faz
+failover por prioridade, monitora cada gateway a cada 30 segundos e conserva
+o retorno de NAT/Port Forward pela WAN de entrada. Ambos são configurados no
+painel e permanecem desativados até o administrador habilitá-los. Consulte
+[Bloqueio e Load Balance](docs/BLOQUEIO_E_LOADBALANCE.md).
 
 ## Uso no celular
 

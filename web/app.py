@@ -4,7 +4,8 @@ from flask import (
     request,
     redirect,
     url_for,
-    flash
+    flash,
+    send_file
 )
 
 import os
@@ -498,14 +499,81 @@ def management_save(section, operation):
         from flask import abort
         abort(404)
     data = request.form.to_dict()
-    for field in ("enabled", "vpn_ports", "remote_ports", "dns_enabled", "block_encrypted_dns", "block_ipv6"):
+    return_tab = data.pop("_tab", "")
+    for field in ("enabled", "vpn_ports", "remote_ports", "dns_enabled", "block_encrypted_dns",
+                  "block_ipv6", "block_page_enabled", "block_page_https"):
         data[field] = request.form.get(field) == "on"
     data["categories"] = request.form.getlist("categories")
     data["interfaces"] = request.form.getlist("interfaces")
     result = post("/api/" + section + "/" + operation, data)
     flash(result.get("message", "Configuração salva." if result.get("success") else "Falha ao salvar."))
-    tab = "?tab=" + ("lists" if operation == "lists" else "profiles") if section == "firewall" and operation in ("lists", "settings") else ""
+    tab = ""
+    if section == "firewall" and operation in ("lists", "settings"):
+        tab = "?tab=" + ("lists" if operation == "lists" else
+                          "blockpage" if return_tab == "blockpage" else "profiles")
     return redirect("/" + section + tab)
+
+
+@app.post("/firewall/block-ca/prepare")
+def block_ca_prepare():
+    result = post("/api/firewall/blockpage/prepare", {})
+    flash(result.get("message", "Falha preparando certificado."))
+    return redirect("/firewall?tab=blockpage")
+
+
+@app.get("/firewall/block-ca")
+def block_ca_download():
+    path = "/data/blockpage/ca.crt"
+    if not os.path.isfile(path):
+        flash("Prepare o certificado antes do download.")
+        return redirect("/firewall?tab=blockpage")
+    return send_file(path, mimetype="application/x-x509-ca-cert", as_attachment=True,
+                     download_name="nanotechrouter-block-page-ca.crt", conditional=True)
+
+
+@app.get("/loadbalance")
+def loadbalance_page():
+    data = get("/api/loadbalance")
+    selected = next((item for item in data.get("members", [])
+                     if item.get("id") == request.args.get("edit")), {})
+    return render_template("loadbalance.html", data=data, selected=selected)
+
+
+@app.post("/loadbalance/settings")
+def loadbalance_settings():
+    result = post("/api/loadbalance/settings", {
+        "enabled": request.form.get("enabled") == "on",
+        "mode": request.form.get("mode", "balance"),
+        "health_target": request.form.get("health_target", "1.1.1.1")
+    })
+    flash(result.get("message", "Configuração salva."))
+    return redirect(url_for("loadbalance_page"))
+
+
+@app.post("/loadbalance/member")
+def loadbalance_member():
+    result = post("/api/loadbalance/member", {
+        "id": request.form.get("id", ""), "name": request.form.get("name", ""),
+        "interface": request.form.get("interface", ""), "gateway": request.form.get("gateway", ""),
+        "weight": request.form.get("weight", "1"), "priority": request.form.get("priority", "10"),
+        "enabled": request.form.get("enabled") == "on"
+    })
+    flash(result.get("message", "Link salvo."))
+    return redirect(url_for("loadbalance_page"))
+
+
+@app.post("/loadbalance/member/delete")
+def loadbalance_member_delete():
+    result = post("/api/loadbalance/member/delete", {"id": request.form.get("id", "")})
+    flash(result.get("message", "Link removido."))
+    return redirect(url_for("loadbalance_page"))
+
+
+@app.post("/loadbalance/check")
+def loadbalance_check():
+    result = post("/api/loadbalance/check", {})
+    flash("Verificação concluída." if result.get("success") else result.get("message", "Falha na verificação."))
+    return redirect(url_for("loadbalance_page"))
 
 
 if __name__ == "__main__":

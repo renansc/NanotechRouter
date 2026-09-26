@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -eu
+BASE="/opt/linux-router"
+
+# Read the token as data. Never source the environment file or expose it in argv/logs.
+ROUTER_HEADER="$(sed -n 's/^ROUTER_API_TOKEN=/X-Router-Token: /p' "$BASE/.env" | head -n 1)"
+[[ -n "$ROUTER_HEADER" ]] || exit 1
+printf '%s\n' "$ROUTER_HEADER" | curl --fail --silent --show-error \
+  --header @- --request POST --max-time 20 \
+  http://127.0.0.1:5050/api/loadbalance/check >/dev/null

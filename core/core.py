@@ -308,11 +308,29 @@ def get_interfaces():
 # NAT
 # ============================================================
 
+def managed_wan_interfaces(state=None):
+    """Return primary WAN plus enabled multi-WAN members, preserving order."""
+    state = state or load_state()
+    result = []
+    primary = state.get("wan")
+    if primary:
+        result.append(primary)
+    try:
+        with open(DATA + "/loadbalance.json") as source:
+            config = json.load(source)
+        if config.get("enabled"):
+            result.extend(member.get("interface") for member in config.get("members", [])
+                          if member.get("enabled"))
+    except (OSError, ValueError, TypeError):
+        pass
+    return list(dict.fromkeys(name for name in result if valid_interface(name) and interface_exists(name)))
+
 def rebuild_nat():
 
     state = load_state()
 
     wan = state.get("wan")
+    wans = managed_wan_interfaces(state)
 
     if not wan:
         return {
@@ -393,23 +411,13 @@ def rebuild_nat():
         except Exception:
             continue
 
-        result = run([
-            "nft",
-            "add",
-            "rule",
-            "ip",
-            "linux_router_nat",
-            "postrouting",
-            "oifname",
-            wan,
-            "ip",
-            "saddr",
-            network,
-            "masquerade"
-        ])
-
-        if not result["success"]:
-            return result
+        for output in wans:
+            result = run([
+                "nft", "add", "rule", "ip", "linux_router_nat", "postrouting",
+                "oifname", output, "ip", "saddr", network, "masquerade"
+            ])
+            if not result["success"]:
+                return result
 
     return {
         "success": True,
@@ -442,6 +450,7 @@ def rebuild_forward():
     state = load_state()
 
     wan = state.get("wan")
+    wans = managed_wan_interfaces(state)
 
     if not wan:
 
@@ -552,78 +561,26 @@ def rebuild_forward():
         # LAN -> WAN
         #
 
-        result = run([
-            "iptables",
-            "-I",
-            "DOCKER-USER",
-            str(position),
-            "-i",
-            interface,
-            "-o",
-            wan,
-            "-m",
-            "comment",
-            "--comment",
-            "linux-router",
-            "-j",
-            "ACCEPT"
-        ])
-
-        if not result["success"]:
-
-            return {
-                "success": False,
-                "message":
-                    "Erro criando FORWARD "
-                    + interface
-                    + " -> "
-                    + wan
-                    + ": "
-                    + result["stderr"]
-            }
-
-        position += 1
-
-        #
-        # WAN -> LAN
-        # Somente conexões já estabelecidas.
-        #
-
-        result = run([
-            "iptables",
-            "-I",
-            "DOCKER-USER",
-            str(position),
-            "-i",
-            wan,
-            "-o",
-            interface,
-            "-m",
-            "conntrack",
-            "--ctstate",
-            "ESTABLISHED,RELATED",
-            "-m",
-            "comment",
-            "--comment",
-            "linux-router",
-            "-j",
-            "ACCEPT"
-        ])
-
-        if not result["success"]:
-
-            return {
-                "success": False,
-                "message":
-                    "Erro criando retorno FORWARD "
-                    + wan
-                    + " -> "
-                    + interface
-                    + ": "
-                    + result["stderr"]
-            }
-
-        position += 1
+        for output in wans:
+            result = run([
+                "iptables", "-I", "DOCKER-USER", str(position),
+                "-i", interface, "-o", output,
+                "-m", "comment", "--comment", "linux-router", "-j", "ACCEPT"
+            ])
+            if not result["success"]:
+                return {"success": False, "message":
+                        "Erro criando FORWARD " + interface + " -> " + output + ": " + result["stderr"]}
+            position += 1
+            result = run([
+                "iptables", "-I", "DOCKER-USER", str(position),
+                "-i", output, "-o", interface,
+                "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED",
+                "-m", "comment", "--comment", "linux-router", "-j", "ACCEPT"
+            ])
+            if not result["success"]:
+                return {"success": False, "message":
+                        "Erro criando retorno FORWARD " + output + " -> " + interface + ": " + result["stderr"]}
+            position += 1
 
     # Routed LAN/VLAN traffic remains subject to the earlier nft firewall chain.
     # Explicit traversal here prevents Docker's FORWARD DROP from hiding valid rules.
@@ -1614,6 +1571,7 @@ def nr_rebuild_port_forwards():
         return local_routes
     state = load_state()
     wan = state.get("wan")
+    wans = managed_wan_interfaces(state)
     rules = nr_load(PORT_FORWARD_FILE, [])
     active = [x for x in rules if x.get("enabled", True)]
 
@@ -1674,38 +1632,38 @@ def nr_rebuild_port_forwards():
         internal_ip = rule["internal_ip"]
         internal_port = str(rule["internal_port"])
 
-        r = run([
-            "nft", "add", "rule", "ip", "nanotechrouter_pf", "prerouting",
-            "iifname", wan, proto, "dport", external_port,
-            "dnat", "to", internal_ip + ":" + internal_port
-        ])
-        if not r["success"]:
-            return r
+        for input_wan in wans:
+            r = run([
+                "nft", "add", "rule", "ip", "nanotechrouter_pf", "prerouting",
+                "iifname", input_wan, proto, "dport", external_port,
+                "dnat", "to", internal_ip + ":" + internal_port
+            ])
+            if not r["success"]:
+                return r
 
-        r = run([
-            "iptables", "-I", "DOCKER-USER", str(position),
-            "-i", wan, "-p", proto, "-d", internal_ip,
-            "--dport", internal_port,
-            "-m", "conntrack", "--ctstate", "NEW,ESTABLISHED,RELATED",
-            "-m", "comment", "--comment", "nanotech-pf",
-            "-j", "ACCEPT"
-        ])
-        if not r["success"]:
-            return r
-        position += 1
+            r = run([
+                "iptables", "-I", "DOCKER-USER", str(position),
+                "-i", input_wan, "-p", proto, "-d", internal_ip,
+                "--dport", internal_port,
+                "-m", "conntrack", "--ctstate", "NEW,ESTABLISHED,RELATED",
+                "-m", "comment", "--comment", "nanotech-pf", "-j", "ACCEPT"
+            ])
+            if not r["success"]:
+                return r
+            position += 1
 
-        # Permit the established return path even when Docker sets FORWARD DROP.
-        r = run([
-            "iptables", "-I", "DOCKER-USER", str(position),
-            "-o", wan, "-p", proto, "-s", internal_ip,
-            "--sport", internal_port,
-            "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED",
-            "--ctdir", "REPLY", "--ctorigdstport", external_port,
-            "-m", "comment", "--comment", "nanotech-pf", "-j", "ACCEPT"
-        ])
-        if not r["success"]:
-            return r
-        position += 1
+            # Permit established replies through the same ingress WAN.
+            r = run([
+                "iptables", "-I", "DOCKER-USER", str(position),
+                "-o", input_wan, "-p", proto, "-s", internal_ip,
+                "--sport", internal_port,
+                "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED",
+                "--ctdir", "REPLY", "--ctorigdstport", external_port,
+                "-m", "comment", "--comment", "nanotech-pf", "-j", "ACCEPT"
+            ])
+            if not r["success"]:
+                return r
+            position += 1
 
         # Hairpin applies only to managed LAN sources addressing this router.
         # Direct server access and arbitrary Internet destinations are untouched.
@@ -1945,15 +1903,16 @@ def nr_reapply():
         network = rebuild_network_rules()
     else:
         network = rebuild_nat()
-    pf = nr_rebuild_port_forwards()
     qos = nr_apply_qos()
     try:
         with NETWORK_LOCK:
             management.restore_routes()
             management.restore_policy()
-        extra = {"success": True}
+            balance = loadbalancer.restore()
+        extra = {"success": True, "loadbalance": balance}
     except Exception as exc:
         extra = {"success": False, "message": str(exc)}
+    pf = nr_rebuild_port_forwards()
     success = all(r.get("success", False) for r in (network, pf, qos, extra))
     return jsonify({"success": success, "network": network,
                     "port_forward": pf, "qos": qos, "management": extra}), (200 if success else 500)
@@ -1977,7 +1936,7 @@ def status():
 
     return jsonify({
         "success": True,
-        "version": "0.5.0",
+        "version": "0.6.0",
         "forwarding":
             open(
                 "/proc/sys/net/ipv4/ip_forward"
@@ -2423,6 +2382,8 @@ def config():
 
 from management import register as register_management
 management = register_management(app, globals())
+from loadbalance import register as register_loadbalance
+loadbalancer = register_loadbalance(app, globals())
 
 
 if __name__ == "__main__":

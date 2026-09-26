@@ -1,0 +1,25 @@
+[Unit]
+Description=NanotechRouter - pagina local de bloqueio HTTP e HTTPS
+After=network.target linux-router-core.service
+Requires=linux-router-core.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/linux-router/core
+Environment=ROUTER_DATA=/opt/linux-router/data
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/linux-router/core/venv/bin/python /opt/linux-router/core/blockpage.py
+Restart=on-failure
+RestartSec=2
+User=root
+Group=root
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/linux-router/data/blockpage
+ReadOnlyPaths=/opt/linux-router/data/firewall.json
+
+[Install]
+WantedBy=multi-user.target

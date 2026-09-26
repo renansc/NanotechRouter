@@ -1,4 +1,4 @@
-# Administração, VLANs, rotas e firewall (0.5.0)
+# Administração, VLANs, rotas e firewall (0.6.0)
 
 ## Login e Sistema / Configuração
 
@@ -127,6 +127,13 @@ caminho HTTPS. Uma exceção mais específica pode liberar subdomínio de uma zo
 bloqueada. Bloqueios mais específicos que uma exceção ampla ainda prevalecem
 pela seleção de sufixo mais específico do dnsmasq. O uso de `local=/dominio/`
 bloqueia todos os tipos de registro, incluindo HTTPS/SVCB.
+
+Quando **Página de bloqueio** está habilitada, o filtro responde o endereço
+reservado local `198.18.0.1` para o registro A e mantém a zona local para não
+consultar o upstream. O firewall INPUT permite as portas 80/443 desse endereço
+somente nas LANs e origens selecionadas. Ao desabilitar a página, o domínio
+volta a responder NXDOMAIN. Instalação da CA, limites de HTTPS e operação estão
+em [BLOQUEIO_E_LOADBALANCE.md](BLOQUEIO_E_LOADBALANCE.md).
 
 Redes sociais e acesso remoto têm uma lista inicial explícita de domínios
 conhecidos, ampliável por domínios personalizados. Não são classificadores

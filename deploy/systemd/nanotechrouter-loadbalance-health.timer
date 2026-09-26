@@ -1,0 +1,12 @@
+[Unit]
+Description=NanotechRouter - monitoramento periodico de Load Balance
+
+[Timer]
+OnBootSec=45s
+OnUnitActiveSec=30s
+AccuracySec=2s
+RandomizedDelaySec=3s
+Unit=nanotechrouter-loadbalance-health.service
+
+[Install]
+WantedBy=timers.target

@@ -29,7 +29,8 @@ class SecurityTests(unittest.TestCase):
         return self.client.post('/login', data={'csrf_token': self.token(), 'username': 'admin', 'password': 'admin'})
 
     def test_all_admin_pages_require_login(self):
-        for route in ['/', '/interfaces', '/vlans', '/routes', '/firewall', '/system', '/nat', '/dhcp']:
+        for route in ['/', '/interfaces', '/vlans', '/routes', '/firewall', '/system',
+                      '/nat', '/dhcp', '/loadbalance', '/firewall/block-ca']:
             with self.subTest(route=route), patch.object(web, 'get') as backend:
                 result = self.client.get(route)
                 self.assertEqual(result.status_code, 302)
@@ -210,10 +211,12 @@ class AuthorizedViewsTests(unittest.TestCase):
     def test_every_new_view_renders_for_authorized_admin(self):
         data = {'success': True, 'items': [], **copy.deepcopy(DEFAULT_POLICY), 'categories_info': {},
                 'interfaces': [{'name': 'eth1', 'type': 'PHYSICAL', 'role': 'LAN', 'addresses': ['192.0.2.1/24']}],
-                'hostname': 'synthetic-router', 'version': '0.5.0', 'uptime_seconds': 3600, 'forwarding': True}
+                'hostname': 'synthetic-router', 'version': '0.6.0', 'uptime_seconds': 3600, 'forwarding': True,
+                'members': [], 'statuses': {}, 'candidates': [], 'selected': []}
         with patch.object(web, 'get', return_value=data):
-            for route in ['/vlans', '/routes', '/firewall', '/firewall?tab=profiles', '/firewall?tab=lists',
-                          '/firewall?tab=status', '/system', '/system?tab=status', '/system?tab=access']:
+            for route in ['/vlans', '/routes', '/firewall', '/firewall?tab=profiles',
+                          '/firewall?tab=blockpage', '/firewall?tab=lists', '/firewall?tab=status',
+                          '/loadbalance', '/system', '/system?tab=status', '/system?tab=access']:
                 with self.subTest(route=route):
                     result = self.client.get(route)
                     self.assertEqual(result.status_code, 200)

@@ -1,6 +1,6 @@
 # Catálogo de funções e acessos
 
-Atualizado para 0.5.0. A instalação independente tem uma conta local **admin**,
+Atualizado para 0.6.0. A instalação independente tem uma conta local **admin**,
 com acesso integral. Todas as páginas exigem sessão válida, exceto login/static.
 Todo POST exige CSRF. A senha inicial precisa ser trocada antes de administrar.
 O core exige `X-Router-Token` em todas as APIs, exceto `/health`.
@@ -13,7 +13,8 @@ a conta local. Implementação e testes: [Administração e segurança](SEGURANC
 Recurso | Acesso
 --- | ---
 Interfaces/WAN/LAN, DHCP, dispositivos/apelidos, NAT/loopback, banda | admin integral
-VLANs, rotas, firewall/regras/filtros/listas | admin integral
+VLANs, rotas, firewall/regras/filtros/listas/página de bloqueio | admin integral
+Load Balance, failover e verificação de links | admin integral
 Sistema/alterar senha | admin com senha atual
 Sistema/reiniciar | admin, senha atual e confirmação REINICIAR
 Login | público, CSRF e limite de tentativas
@@ -72,6 +73,13 @@ Core | token interno; não acessível diretamente pela rede
 | web | POST | `/system/reboot` | Confirmar e solicitar reinício |
 | web | GET | `/vlans`, `/routes`, `/firewall` | Cadastro e estado |
 | web | POST | `/manage/<section>/<operation>` | Validar seção/operação e encaminhar mutação autenticada |
+| web | POST | `/firewall/block-ca/prepare` | Criar a CA local protegida da página de bloqueio |
+| web | GET | `/firewall/block-ca` | Baixar somente o certificado público da CA |
+| web | GET | `/loadbalance` | Consultar links, estado e configuração de Load Balance |
+| web | POST | `/loadbalance/settings` | Ativar/desativar modo, alvo e política |
+| web | POST | `/loadbalance/member` | Cadastrar ou editar um link |
+| web | POST | `/loadbalance/member/delete` | Excluir um link |
+| web | POST | `/loadbalance/check` | Verificar os links imediatamente |
 | core | GET | `/api/system/info` | Estado e versão |
 | core | POST | `/api/system/reboot` | Agendar reinício confirmado |
 | core | POST | `/api/system/restore-links` | Recriar VLANs cadastradas no boot |
@@ -81,6 +89,12 @@ Core | token interno; não acessível diretamente pela rede
 | core | POST | `/api/firewall/save`, `/api/firewall/delete`, `/api/firewall/move` | CRUD e ordem de regras |
 | core | POST | `/api/firewall/settings` | Ativar/desativar política e aplicar filtros |
 | core | POST | `/api/firewall/lists` | Baixar categorias de fontes fixas |
+| core | POST | `/api/firewall/blockpage/prepare` | Criar/verificar a CA local sem expor a chave privada |
+| core | GET | `/api/loadbalance` | Configuração, candidatos e saúde dos links |
+| core | POST | `/api/loadbalance/settings` | Validar, salvar e aplicar Load Balance/failover |
+| core | POST | `/api/loadbalance/member` | Validar e salvar um membro WAN |
+| core | POST | `/api/loadbalance/member/delete` | Remover membro com restauração em falha |
+| core | POST | `/api/loadbalance/check` | Executar health check e atualizar seleção |
 
 As rotas genéricas aceitam somente as seções e operações listadas. O servidor
 recusa token ausente/incorreto, entrada inválida, IDs desconhecidos e interfaces

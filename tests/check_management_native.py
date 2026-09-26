@@ -139,7 +139,11 @@ try:
         while True:
             try:
                 data, source = dns.recvfrom(4096)
-                reply = data[:2] + b'\x81\x80' + data[4:6] + b'\x00\x01\x00\x00\x00\x00' + data[12:] + b'\xc0\x0c\x00\x01\x00\x01\x00\x00\x00\x3c\x00\x04' + socket.inet_aton('203.0.113.10')
+                end = 12
+                while data[end]:
+                    end += data[end] + 1
+                end += 5  # zero label plus QTYPE/QCLASS
+                reply = data[:2] + b'\x81\x80' + data[4:6] + b'\x00\x01\x00\x00\x00\x00' + data[12:end] + b'\xc0\x0c\x00\x01\x00\x01\x00\x00\x00\x3c\x00\x04' + socket.inet_aton('203.0.113.10')
                 dns.sendto(reply, source)
             except OSError:
                 break
@@ -151,16 +155,42 @@ try:
     m.apply_nft(policy)
     def query(name, source='192.0.2.2', kind=1):
         query = b'\x12\x34\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00' + b''.join(bytes([len(s)]) + s.encode() for s in name.split('.')) + b'\x00' + struct.pack('!HH', kind, 1)
-        code = 'import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.bind((' + repr(source) + ',0));s.settimeout(2);s.sendto(' + repr(query) + ',("1.1.1.1",53));r=s.recv(4096);print(r[3]&15)'
-        return int(ns(0, sys.executable, '-c', code).strip())
-    assert query('blocked.example.com') == 3
-    assert query('sub.blocked.example.com') == 3
-    assert query('blocked.example.com', kind=65) == 3, 'HTTPS/SVCB record bypassed DNS block'
-    assert query('ok.blocked.example.com') == 0
-    assert query('blocked.example.com', source='192.0.2.3') == 0
+        code = ('import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.bind((' + repr(source) +
+                ',0));s.settimeout(2);s.sendto(' + repr(query) + ',("1.1.1.1",53));r=s.recv(4096);'
+                'print(r.hex())')
+        response = bytes.fromhex(ns(0, sys.executable, '-c', code).strip())
+        answer = '-'
+        offset = 12
+        def skip_name(position):
+            while response[position]:
+                if response[position] & 0xc0 == 0xc0:
+                    return position + 2
+                position += response[position] + 1
+            return position + 1
+        for _ in range(struct.unpack('!H', response[4:6])[0]):
+            offset = skip_name(offset) + 4
+        for _ in range(struct.unpack('!H', response[6:8])[0]):
+            offset = skip_name(offset)
+            record_type, _, _, length = struct.unpack('!HHIH', response[offset:offset + 10])
+            offset += 10
+            if record_type == 1 and length == 4:
+                answer = socket.inet_ntoa(response[offset:offset + 4])
+                break
+            offset += length
+        return response[3] & 15, answer
+    assert query('blocked.example.com') == (0, '198.18.0.1')
+    assert query('sub.blocked.example.com') == (0, '198.18.0.1')
+    assert query('blocked.example.com', kind=65)[0] == 0, 'HTTPS/SVCB record bypassed DNS block'
+    allowed = query('ok.blocked.example.com')
+    assert allowed == (0, '203.0.113.10'), allowed
+    exempt = query('blocked.example.com', source='192.0.2.3')
+    assert exempt == (0, '203.0.113.10'), exempt
+    policy['block_page_enabled'] = False
+    m.configure_dns(policy)
+    assert query('blocked.example.com')[0] == 3, 'Página desativada deveria manter resposta NXDOMAIN'
     m.configure_dns(DEFAULT_POLICY)
     dns.close()
-    print('PASS: DNS interception, domain/subdomain/HTTPS-record block, domain and source-IP exceptions')
+    print('PASS: DNS interception, block-page A/HTTPS, NXDOMAIN fallback, domain and source-IP exceptions')
 finally:
     try:
         m.configure_dns(DEFAULT_POLICY)

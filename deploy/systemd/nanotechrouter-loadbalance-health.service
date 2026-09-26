@@ -1,0 +1,16 @@
+[Unit]
+Description=NanotechRouter - verificacao dos links de Internet
+After=network-online.target linux-router-core.service
+Wants=network-online.target
+Requires=linux-router-core.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/nanotechrouter-loadbalance-health
+User=root
+Group=root
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadOnlyPaths=/opt/linux-router/.env

@@ -19,7 +19,7 @@
 <aside class="sidebar" id="main-sidebar" aria-label="Menu principal">
 <div class="sidebar-heading"><span class="logo">NanotechRouter</span><button type="button" class="menu-close" aria-label="Fechar menu">×</button></div>
 <nav aria-label="Navegação principal">
-{% for path, label in [('/', 'Dashboard'), ('/interfaces', 'Interfaces / WAN / LAN'), ('/ports', 'Portas / Apelidos'), ('/dhcp', 'DHCP / Reservas de IP'), ('/devices', 'Dispositivos'), ('/vlans', 'VLANs'), ('/firewall', 'Firewall'), ('/nat', 'NAT / Port Forward'), ('/bandwidth', 'Controle de Banda'), ('/routes', 'Rotas'), ('/system', 'Sistema / Configuração')] %}
+{% for path, label in [('/', 'Dashboard'), ('/interfaces', 'Interfaces / WAN / LAN'), ('/ports', 'Portas / Apelidos'), ('/dhcp', 'DHCP / Reservas de IP'), ('/devices', 'Dispositivos'), ('/vlans', 'VLANs'), ('/firewall', 'Firewall'), ('/nat', 'NAT / Port Forward'), ('/bandwidth', 'Controle de Banda'), ('/loadbalance', 'Balanceamento de Links'), ('/routes', 'Rotas'), ('/system', 'Sistema / Configuração')] %}
 <a href="{{ path }}" {% if request.path == path %}aria-current="page"{% endif %}>{{ label }}</a>
 {% endfor %}
 </nav>

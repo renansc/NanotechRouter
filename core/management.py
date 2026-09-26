@@ -9,6 +9,7 @@ import tempfile
 import time
 import urllib.request
 import uuid
+import sys
 from pathlib import Path
 from flask import jsonify, request
 
@@ -21,7 +22,11 @@ CATEGORIES = {
 DEFAULT_POLICY = {'enabled': False, 'items': [], 'interfaces': [], 'source': '0.0.0.0/0',
                   'vpn_ports': False, 'remote_ports': False, 'dns_enabled': False,
                   'block_encrypted_dns': False, 'block_ipv6': False,
+                  'block_page_enabled': True, 'block_page_https': True,
+                  'block_page_title': 'Acesso bloqueado',
+                  'block_page_message': 'Este endereço foi bloqueado pela política de segurança da rede.',
                   'categories': [], 'domains': [], 'allow_domains': [], 'exempt_ips': []}
+BLOCK_PAGE_IP = '198.18.0.1'
 
 
 def network(value):
@@ -144,7 +149,14 @@ class Management:
             for iface in policy['interfaces']:
                 out += [f'iifname "{iface}" ip saddr {policy["source"]} udp dport 1053 accept',
                         f'iifname "{iface}" ip saddr {policy["source"]} tcp dport 1053 accept']
-        out += ['udp dport 1053 drop', 'tcp dport 1053 drop', '}',
+        if policy['enabled'] and policy['dns_enabled'] and policy['block_page_enabled']:
+            for iface in policy['interfaces']:
+                prefix = f'iifname "{iface}" ip saddr {policy["source"]} ip daddr {BLOCK_PAGE_IP}'
+                out += [prefix + ' tcp dport 80 accept']
+                if policy['block_page_https']:
+                    out += [prefix + ' tcp dport 443 accept']
+        out += [f'ip daddr {BLOCK_PAGE_IP} tcp dport {{ 80, 443 }} drop',
+                'udp dport 1053 drop', 'tcp dport 1053 drop', '}',
                 'chain dns_redirect { type nat hook prerouting priority -110; policy accept;']
         if policy['enabled'] and policy['dns_enabled']:
             for ip in policy['exempt_ips']:
@@ -187,6 +199,8 @@ class Management:
                'pid-file=' + self.env.get('RUNTIME_DIR', '/run/linux-router') + '/dns-filter.pid', 'user=nobody']
         # local= covers all query types, including HTTPS/SVCB; address alone is insufficient.
         for item in sorted(blocked):
+            if policy['block_page_enabled']:
+                out.append('address=/' + item + '/' + BLOCK_PAGE_IP)
             out.append('local=/' + item + '/')
         for item in policy['allow_domains']:
             out.append('server=/' + item + '/1.1.1.1')
@@ -230,9 +244,11 @@ class Management:
             raise
 
     def apply_policy(self, new, old, refresh_dns=False):
-        dns_keys = ('enabled', 'dns_enabled', 'interfaces', 'source', 'categories', 'domains', 'allow_domains')
+        dns_keys = ('enabled', 'dns_enabled', 'interfaces', 'source', 'categories', 'domains',
+                    'allow_domains', 'block_page_enabled')
         dns_change = refresh_dns or any(new[k] != old[k] for k in dns_keys)
         try:
+            self.configure_block_page(new)
             if dns_change:
                 self.configure_dns(new)
             self.apply_nft(new)
@@ -240,6 +256,7 @@ class Management:
         except Exception as exc:
             errors = []
             try:
+                self.configure_block_page(old)
                 if dns_change:
                     self.configure_dns(old)
                 self.apply_nft(old)
@@ -249,8 +266,11 @@ class Management:
 
     def settings(self, data, policy):
         result = dict(policy)
-        for key in ('enabled', 'vpn_ports', 'remote_ports', 'dns_enabled', 'block_encrypted_dns', 'block_ipv6'):
+        for key in ('enabled', 'vpn_ports', 'remote_ports', 'dns_enabled', 'block_encrypted_dns',
+                    'block_ipv6', 'block_page_enabled', 'block_page_https'):
             result[key] = data.get(key) is True
+        result['block_page_title'] = str(data.get('block_page_title', '')).strip()[:80] or 'Acesso bloqueado'
+        result['block_page_message'] = str(data.get('block_page_message', '')).strip()[:500] or DEFAULT_POLICY['block_page_message']
         result['interfaces'] = list(dict.fromkeys(data.get('interfaces', [])))
         lans = self.load_state().get('lans', {})
         if any(i not in lans or not re.fullmatch(r'[a-zA-Z0-9_.-]{1,15}', i) for i in result['interfaces']):
@@ -267,6 +287,24 @@ class Management:
         if set(result['domains']) & set(result['allow_domains']):
             raise ValueError('Um domínio não pode estar nas duas listas.')
         return result
+
+    def prepare_block_page_ca(self):
+        script = Path(self.BASE) / 'core' / 'blockpage.py'
+        self.checked([sys.executable, str(script), '--init-ca'])
+        certificate = Path(self.DATA) / 'blockpage' / 'ca.crt'
+        if not certificate.exists():
+            raise RuntimeError('A autoridade certificadora não foi criada.')
+        return certificate
+
+    def configure_block_page(self, policy):
+        active = policy['enabled'] and policy['dns_enabled'] and policy['block_page_enabled']
+        if active:
+            self.prepare_block_page_ca()
+            self.checked(['ip', 'address', 'replace', BLOCK_PAGE_IP + '/32', 'dev', 'lo'])
+            self.checked(['systemctl', 'start', 'nanotechrouter-blockpage.service'])
+        else:
+            # The address may remain owned on loopback; nftables denies access while inactive.
+            self.run(['systemctl', 'stop', 'nanotechrouter-blockpage.service'])
 
     def update_lists(self, categories):
         if not isinstance(categories, list) or any(c not in CATEGORIES for c in categories):
@@ -409,6 +447,7 @@ class Management:
 
     def restore_policy(self):
         policy = self.policy()
+        self.configure_block_page(policy)
         self.apply_nft(policy)
         self.configure_dns(policy)
 
@@ -450,7 +489,7 @@ def register(app, env):
 
     @app.get('/api/system/info')
     def system_info():
-        return jsonify(success=True, version='0.5.0', hostname=os.uname().nodename,
+        return jsonify(success=True, version='0.6.0', hostname=os.uname().nodename,
                        uptime_seconds=int(float(Path('/proc/uptime').read_text().split()[0])),
                        forwarding=Path('/proc/sys/net/ipv4/ip_forward').read_text().strip() == '1')
 
@@ -460,6 +499,14 @@ def register(app, env):
             return jsonify(success=False, message='Confirmação de reinício ausente.'), 400
         result = m.run(['systemd-run', '--unit=nanotechrouter-reboot-' + uuid.uuid4().hex[:8], '--on-active=5s', '/usr/bin/systemctl', 'reboot'])
         return jsonify(success=result['success'], message='Reinício solicitado para daqui a 5 segundos.' if result['success'] else result['stderr']), (200 if result['success'] else 500)
+
+    @app.post('/api/firewall/blockpage/prepare')
+    def blockpage_prepare():
+        try:
+            m.prepare_block_page_ca()
+            return jsonify(success=True, message='Certificado da página de bloqueio preparado para download.')
+        except Exception as exc:
+            return jsonify(success=False, message=str(exc)), 500
 
     @app.get('/api/<section>')
     def management_get(section):
