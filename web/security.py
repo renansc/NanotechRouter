@@ -102,7 +102,8 @@ def install(app):
                     return redirect(url_for("system_page" if admin["initial"] else "dashboard"))
                 db.execute("INSERT INTO attempts VALUES (?,1,?) ON CONFLICT(ip) DO UPDATE SET failures=failures+1", (ip, time.time()))
                 error = "Usuário ou senha inválidos."
-        return render_template("login.html", error=error), (401 if error else 200)
+        status = 401 if request.method == "POST" and error else 200
+        return render_template("login.html", error=error), status
 
     @app.post("/logout")
     def logout():

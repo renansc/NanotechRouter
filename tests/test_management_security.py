@@ -71,6 +71,7 @@ class SecurityTests(unittest.TestCase):
             renewed = session['csrf']
             self.assertNotIn('admin_version', session)
         page = self.client.get(response.location)
+        self.assertEqual(page.status_code, 200)
         self.assertIn(b'sess\xc3\xa3o do formul\xc3\xa1rio foi renovada', page.data)
         response = self.client.post('/login', data={
             'csrf_token': renewed, 'username': 'admin', 'password': 'admin'})
