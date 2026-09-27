@@ -1,4 +1,4 @@
-# Administração, VLANs, rotas e firewall (0.6.0)
+# Administração, VLANs, rotas e firewall (0.6.1)
 
 ## Login e Sistema / Configuração
 
@@ -15,6 +15,10 @@ Cookies usam HttpOnly e SameSite Strict. O painel atual continua HTTP na porta
 5000; o tráfego de login não é criptografado. Usar a rede de gestão ou Tailscale;
 HTTPS com certificado não faz parte desta mudança. Não publicar o painel na
 Internet. A troca de senha afeta somente o painel, não o usuário SSH do Linux.
+Se o navegador enviar uma tela de login antiga ou perder o cookie, o servidor
+descarta as credenciais daquele POST, renova a sessão e apresenta o login outra
+vez, em vez de responder com erro genérico 400. O usuário precisa reenviar a
+senha no novo formulário, que continua protegido por CSRF.
 
 **Sistema / Configuração > Usuários e acessos** apresenta a conta e o catálogo
 administrativo. O perfil admin tem acesso integral aos recursos listados em

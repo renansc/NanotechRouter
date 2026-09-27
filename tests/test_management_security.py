@@ -56,9 +56,26 @@ class SecurityTests(unittest.TestCase):
 
     def test_csrf_required_for_login_and_all_mutations(self):
         with patch.object(web, 'post') as backend:
-            for path in ['/login', '/wan/set', '/manage/firewall/settings', '/system/reboot', '/logout']:
+            login = self.client.post('/login', data={})
+            self.assertEqual(login.status_code, 303)
+            self.assertTrue(login.location.endswith('/login?renewed=1'))
+            for path in ['/wan/set', '/manage/firewall/settings', '/system/reboot', '/logout']:
                 self.assertEqual(self.client.post(path, data={}).status_code, 400)
             backend.assert_not_called()
+
+    def test_stale_login_form_renews_csrf_without_authenticating(self):
+        response = self.client.post('/login', data={
+            'csrf_token': 'stale-token', 'username': 'admin', 'password': 'admin'})
+        self.assertEqual(response.status_code, 303)
+        with self.client.session_transaction() as session:
+            renewed = session['csrf']
+            self.assertNotIn('admin_version', session)
+        page = self.client.get(response.location)
+        self.assertIn(b'sess\xc3\xa3o do formul\xc3\xa1rio foi renovada', page.data)
+        response = self.client.post('/login', data={
+            'csrf_token': renewed, 'username': 'admin', 'password': 'admin'})
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.location.endswith('/system'))
 
     def test_login_throttles_across_clients(self):
         token = self.token()

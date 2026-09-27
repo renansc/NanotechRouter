@@ -58,6 +58,10 @@ def install(app):
         if request.method not in ("GET", "HEAD", "OPTIONS"):
             token = request.form.get("csrf_token", "") or request.headers.get("X-CSRF-Token", "")
             if not token or not hmac.compare_digest(token, session.get("csrf", "")):
+                if request.endpoint == "login":
+                    session.clear()
+                    session["csrf"] = secrets.token_hex(32)
+                    return redirect(url_for("login", renewed="1"), code=303)
                 abort(400, "Sessão do formulário expirou. Recarregue a página.")
         if request.endpoint == "login":
             return
@@ -78,7 +82,8 @@ def install(app):
 
     @app.route("/login", methods=["GET", "POST"])
     def login():
-        error = None
+        error = ("A sessão do formulário foi renovada. Informe as credenciais novamente."
+                 if request.args.get("renewed") == "1" else None)
         if request.method == "POST":
             ip = request.remote_addr or "unknown"
             with database() as db:

@@ -1,6 +1,6 @@
 # Catálogo de funções e acessos
 
-Atualizado para 0.6.0. A instalação independente tem uma conta local **admin**,
+Atualizado para 0.6.1. A instalação independente tem uma conta local **admin**,
 com acesso integral. Todas as páginas exigem sessão válida, exceto login/static.
 Todo POST exige CSRF. A senha inicial precisa ser trocada antes de administrar.
 O core exige `X-Router-Token` em todas as APIs, exceto `/health`.
@@ -17,7 +17,7 @@ VLANs, rotas, firewall/regras/filtros/listas/página de bloqueio | admin integra
 Load Balance, failover e verificação de links | admin integral
 Sistema/alterar senha | admin com senha atual
 Sistema/reiniciar | admin, senha atual e confirmação REINICIAR
-Login | público, CSRF e limite de tentativas
+Login | público, CSRF, renovação de formulário expirado e limite de tentativas
 Core | token interno; não acessível diretamente pela rede
 
 | Componente | Método | Rota | Função |
@@ -98,8 +98,9 @@ Core | token interno; não acessível diretamente pela rede
 
 As rotas genéricas aceitam somente as seções e operações listadas. O servidor
 recusa token ausente/incorreto, entrada inválida, IDs desconhecidos e interfaces
-em uso. Testes verificam login necessário, CSRF, senha inicial, expiração por
-troca de senha, limitação de tentativas, páginas autenticadas e comandos rejeitados.
+em uso. Testes verificam login necessário, CSRF, renovação segura de formulário
+de login expirado, senha inicial, expiração por troca de senha, limitação de
+tentativas, páginas autenticadas e comandos rejeitados.
 
 O menu compartilhado tem apresentação recolhível em celular, com indicação da
 página atual, navegação por teclado e foco contido enquanto aberto. As tabelas
