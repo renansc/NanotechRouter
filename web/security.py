@@ -14,7 +14,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 
 def install(app):
-    app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Strict",
+    app.config.update(SESSION_COOKIE_NAME="nanotechrouter_session",
+                      SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
                       PERMANENT_SESSION_LIFETIME=timedelta(hours=8), MAX_CONTENT_LENGTH=256 * 1024)
     app.config.setdefault("AUTH_DIRECTORY", os.environ.get("ROUTER_AUTH_DIRECTORY", "/data/auth"))
 
@@ -59,6 +60,11 @@ def install(app):
             token = request.form.get("csrf_token", "") or request.headers.get("X-CSRF-Token", "")
             if not token or not hmac.compare_digest(token, session.get("csrf", "")):
                 if request.endpoint == "login":
+                    app.logger.warning(
+                        "Login CSRF renovado: ip=%s host=%s cookie=%s formulario=%s sessao=%s",
+                        request.remote_addr or "unknown", request.host,
+                        bool(request.cookies.get(app.config["SESSION_COOKIE_NAME"])),
+                        bool(token), bool(session.get("csrf")))
                     session.clear()
                     session["csrf"] = secrets.token_hex(32)
                     return redirect(url_for("login", renewed="1"), code=303)

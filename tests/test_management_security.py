@@ -37,6 +37,13 @@ class SecurityTests(unittest.TestCase):
                 self.assertTrue(result.location.endswith('/login'))
                 backend.assert_not_called()
 
+    def test_login_uses_router_specific_compatible_cookie(self):
+        response = self.client.get('/login')
+        cookie = response.headers.get('Set-Cookie', '')
+        self.assertIn('nanotechrouter_session=', cookie)
+        self.assertIn('HttpOnly', cookie)
+        self.assertIn('SameSite=Lax', cookie)
+
     def test_default_login_requires_password_change_and_invalidates_other_sessions(self):
         self.assertTrue(self.login().location.endswith('/system'))
         self.assertTrue(self.client.get('/firewall').location.endswith('/system'))

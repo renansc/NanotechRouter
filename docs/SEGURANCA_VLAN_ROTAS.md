@@ -1,4 +1,4 @@
-# Administração, VLANs, rotas e firewall (0.6.1)
+# Administração, VLANs, rotas e firewall (0.6.2)
 
 ## Login e Sistema / Configuração
 
@@ -11,7 +11,9 @@ não existe cadastro; atualizar/reiniciar nunca redefine a senha existente.
 A senha fica em hash scrypt em `data/auth/admin.sqlite3`, com permissão 0600.
 Login limita cinco tentativas incorretas por IP em 15 minutos. Sessões duram
 até oito horas; mudar a senha invalida as demais. Todos os POST exigem CSRF.
-Cookies usam HttpOnly e SameSite Strict. O painel atual continua HTTP na porta
+O cookie exclusivo `nanotechrouter_session` usa HttpOnly e SameSite Lax para
+evitar colisão com outros painéis no mesmo IP e funcionar em navegação direta
+pelos endereços local e Tailscale. O painel atual continua HTTP na porta
 5000; o tráfego de login não é criptografado. Usar a rede de gestão ou Tailscale;
 HTTPS com certificado não faz parte desta mudança. Não publicar o painel na
 Internet. A troca de senha afeta somente o painel, não o usuário SSH do Linux.
