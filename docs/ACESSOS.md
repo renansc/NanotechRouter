@@ -1,6 +1,6 @@
 # Catálogo de funções e acessos
 
-Atualizado para 0.6.3. A instalação independente tem uma conta local **admin**,
+Atualizado para 0.7.0. A instalação independente tem uma conta local **admin**,
 com acesso integral. Todas as páginas exigem sessão válida, exceto login/static.
 Todo POST exige CSRF. A senha inicial precisa ser trocada antes de administrar.
 O core exige `X-Router-Token` em todas as APIs, exceto `/health`.
@@ -13,7 +13,7 @@ a conta local. Implementação e testes: [Administração e segurança](SEGURANC
 Recurso | Acesso
 --- | ---
 Interfaces/WAN/LAN, DHCP, dispositivos/apelidos, NAT/loopback, banda | admin integral
-VLANs, rotas, firewall/regras/filtros/listas/página de bloqueio | admin integral
+VLANs, rotas, firewall/regras/isolamento automático/filtros/listas/página de bloqueio | admin integral
 Load Balance, failover e verificação de links | admin integral
 Sistema/alterar senha | admin com senha atual
 Sistema/reiniciar | admin, senha atual e confirmação REINICIAR

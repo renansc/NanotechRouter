@@ -500,7 +500,7 @@ def management_save(section, operation):
         abort(404)
     data = request.form.to_dict()
     return_tab = data.pop("_tab", "")
-    for field in ("enabled", "vpn_ports", "remote_ports", "dns_enabled", "block_encrypted_dns",
+    for field in ("enabled", "isolate_networks", "vpn_ports", "remote_ports", "dns_enabled", "block_encrypted_dns",
                   "block_ipv6", "block_page_enabled", "block_page_https"):
         data[field] = request.form.get(field) == "on"
     data["categories"] = request.form.getlist("categories")

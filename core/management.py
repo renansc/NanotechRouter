@@ -19,7 +19,8 @@ CATEGORIES = {
     'adult': {'name': 'Conteúdo adulto — HaGeZi NSFW', 'file': 'nsfw'},
     'vpn': {'name': 'VPN, proxy e DNS criptografado — HaGeZi', 'file': 'doh-vpn-proxy-bypass'},
 }
-DEFAULT_POLICY = {'enabled': False, 'items': [], 'interfaces': [], 'source': '0.0.0.0/0',
+DEFAULT_POLICY = {'enabled': False, 'isolate_networks': False, 'items': [],
+                  'interfaces': [], 'source': '0.0.0.0/0',
                   'vpn_ports': False, 'remote_ports': False, 'dns_enabled': False,
                   'block_encrypted_dns': False, 'block_ipv6': False,
                   'block_page_enabled': True, 'block_page_https': True,
@@ -116,9 +117,75 @@ class Management:
                 'source': network(data.get('source', '')), 'destination': network(data.get('destination', '')),
                 'protocol': proto, 'port': port, 'action': action, 'enabled': data.get('enabled') is True}
 
+    def isolation_nft_rules(self):
+        """Default isolation for managed networks, with exact Port Forward exceptions."""
+        state = self.load_state()
+        lans = {}
+        for interface, config in state.get('lans', {}).items():
+            if not self.valid_interface(interface) or not self.interface_exists(interface):
+                continue
+            try:
+                lans[interface] = ipaddress.IPv4Interface(config['address']).network
+            except (ValueError, KeyError, TypeError):
+                continue
+
+        wans = {}
+        for interface in self.managed_wan_interfaces(state):
+            networks = set()
+            for address in self.interface_ipv4(interface):
+                try:
+                    candidate = ipaddress.IPv4Interface(address).network
+                except ValueError:
+                    continue
+                if not (candidate.is_loopback or candidate.is_link_local or candidate.is_multicast):
+                    networks.add(candidate)
+            if networks:
+                wans[interface] = sorted(networks, key=lambda item: (int(item.network_address), item.prefixlen))
+
+        exceptions = []
+        for row in self.nr_load(self.PORT_FORWARD_FILE, []):
+            try:
+                if not row.get('enabled', True) or row['protocol'] not in ('tcp', 'udp'):
+                    continue
+                internal = ipaddress.IPv4Address(row['internal_ip'])
+                external_port = int(row['external_port'])
+                internal_port = int(row['internal_port'])
+                if not 1 <= external_port <= 65535 or not 1 <= internal_port <= 65535:
+                    continue
+                if not any(internal in network for network in lans.values()):
+                    continue
+            except (ValueError, KeyError, TypeError):
+                continue
+            exceptions.append(
+                f'ct status dnat meta l4proto {row["protocol"]} '
+                f'ct original proto-dst {external_port} ct reply ip saddr {internal} '
+                f'ct reply proto-src {internal_port} counter accept')
+
+        blocks = []
+        for lan_interface, lan_network in lans.items():
+            for wan_interface, wan_networks in wans.items():
+                for wan_network in wan_networks:
+                    blocks += [
+                        f'iifname "{lan_interface}" oifname "{wan_interface}" '
+                        f'ip saddr {lan_network} ip daddr {wan_network} counter drop',
+                        f'iifname "{wan_interface}" oifname "{lan_interface}" '
+                        f'ip saddr {wan_network} ip daddr {lan_network} counter drop'
+                    ]
+        for source_interface, source_network in lans.items():
+            for destination_interface, destination_network in lans.items():
+                if source_interface != destination_interface:
+                    blocks.append(
+                        f'iifname "{source_interface}" oifname "{destination_interface}" '
+                        f'ip saddr {source_network} ip daddr {destination_network} counter drop')
+        return exceptions, blocks
+
     def nft_text(self, policy):
         out = ['table inet nanotechrouter_policy {', 'chain forward { type filter hook forward priority -20; policy accept;']
         if policy['enabled']:
+            isolation_blocks = []
+            if policy.get('isolate_networks'):
+                nat_exceptions, isolation_blocks = self.isolation_nft_rules()
+                out.extend(nat_exceptions)
             # Match ORIGINAL tuples also on reply packets: ordered exceptions and blocks apply symmetrically.
             for row in policy['items']:
                 if not row['enabled']:
@@ -130,6 +197,7 @@ class Management:
                     parts.append('ct reply proto-src ' + row['port'])
                 parts.extend(['counter', row['action']])
                 out.append(' '.join(parts))
+            out.extend(isolation_blocks)
             for iface in policy['interfaces']:
                 prefix = f'iifname "{iface}" ip saddr {policy["source"]}'
                 if policy['block_ipv6']:
@@ -266,7 +334,7 @@ class Management:
 
     def settings(self, data, policy):
         result = dict(policy)
-        for key in ('enabled', 'vpn_ports', 'remote_ports', 'dns_enabled', 'block_encrypted_dns',
+        for key in ('enabled', 'isolate_networks', 'vpn_ports', 'remote_ports', 'dns_enabled', 'block_encrypted_dns',
                     'block_ipv6', 'block_page_enabled', 'block_page_https'):
             result[key] = data.get(key) is True
         result['block_page_title'] = str(data.get('block_page_title', '')).strip()[:80] or 'Acesso bloqueado'
@@ -489,7 +557,9 @@ def register(app, env):
 
     @app.get('/api/system/info')
     def system_info():
-        return jsonify(success=True, version='0.6.0', hostname=os.uname().nodename,
+        version_file = Path(m.BASE) / 'VERSION'
+        version = version_file.read_text().strip() if version_file.exists() else 'desconhecida'
+        return jsonify(success=True, version=version, hostname=os.uname().nodename,
                        uptime_seconds=int(float(Path('/proc/uptime').read_text().split()[0])),
                        forwarding=Path('/proc/sys/net/ipv4/ip_forward').read_text().strip() == '1')
 

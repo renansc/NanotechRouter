@@ -201,6 +201,27 @@ class PolicyTests(unittest.TestCase):
         self.assertNotIn('ct state established', nft)
         self.assertNotIn('flush ruleset', nft)
 
+    def test_automatic_isolation_keeps_internet_and_allows_only_registered_nat(self):
+        forward = {'id': 'pf1', 'enabled': True, 'protocol': 'tcp', 'external_port': 8080,
+                   'internal_ip': '192.0.2.3', 'internal_port': 80}
+        policy = {**copy.deepcopy(DEFAULT_POLICY), 'enabled': True, 'isolate_networks': True}
+        with patch.object(core, 'managed_wan_interfaces', return_value=['eth0']), \
+             patch.object(core, 'interface_ipv4', return_value=['198.51.100.184/24']), \
+             patch.object(core, 'interface_exists', return_value=True), \
+             patch.object(core, 'nr_load', return_value=[forward]):
+            nft = self.m.nft_text(policy)
+        exception = ('ct status dnat meta l4proto tcp ct original proto-dst 8080 '
+                     'ct reply ip saddr 192.0.2.3 ct reply proto-src 80 counter accept')
+        lan_block = ('iifname "eth1" oifname "eth0" ip saddr 192.0.2.0/24 '
+                     'ip daddr 198.51.100.0/24 counter drop')
+        wan_block = ('iifname "eth0" oifname "eth1" ip saddr 198.51.100.0/24 '
+                     'ip daddr 192.0.2.0/24 counter drop')
+        self.assertIn(exception, nft)
+        self.assertIn(lan_block, nft)
+        self.assertIn(wan_block, nft)
+        self.assertLess(nft.index(exception), nft.index(lan_block))
+        self.assertNotIn('ip daddr 0.0.0.0/0 counter drop', nft)
+
     def test_routes_reject_unknown_id_default_offlink_and_connected_network(self):
         data = {'destination': '203.0.113.0/24', 'gateway': '192.0.2.254', 'interface': 'eth1', 'metric': 100, 'enabled': True}
         with patch.object(core, 'interface_exists', return_value=True), patch.object(core, 'interface_ipv4', return_value=['192.0.2.1/24']):
@@ -261,7 +282,8 @@ class AuthorizedViewsTests(unittest.TestCase):
 
     def test_authorized_profile_submit_preserves_lists_and_booleans(self):
         from werkzeug.datastructures import MultiDict
-        payload = MultiDict([('enabled', 'on'), ('interfaces', 'eth1'), ('interfaces', 'eth1.20'),
+        payload = MultiDict([('enabled', 'on'), ('isolate_networks', 'on'),
+                             ('interfaces', 'eth1'), ('interfaces', 'eth1.20'),
                              ('categories', 'social'), ('categories', 'adult'), ('source', '192.0.2.3')])
         with patch.object(web, 'post', return_value={'success': True}) as backend:
             result = self.client.post('/manage/firewall/settings', data=payload)
@@ -270,6 +292,7 @@ class AuthorizedViewsTests(unittest.TestCase):
         self.assertEqual(args['interfaces'], ['eth1', 'eth1.20'])
         self.assertEqual(args['categories'], ['social', 'adult'])
         self.assertTrue(args['enabled'])
+        self.assertTrue(args['isolate_networks'])
         self.assertFalse(args['dns_enabled'])
 
     def test_shared_layout_exposes_accessible_mobile_navigation(self):

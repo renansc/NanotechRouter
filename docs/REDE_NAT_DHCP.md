@@ -60,6 +60,9 @@ servidor enxerga o IP do gateway como origem. Entre LANs diferentes, o endereço
 de origem é preservado. A DOCKER-USER permite somente os fluxos traduzidos e
 seus retornos, inclusive quando FORWARD está DROP. As regras de isolamento nft
 da aba Firewall continuam anteriores e podem bloquear o serviço de destino.
+Quando o isolamento automático está ativo, o próprio Port Forward cadastrado
+gera uma exceção nft restrita à conexão DNAT. Assim, o serviço publicado passa
+sem liberar acesso direto ao IP interno nem ao restante da LAN.
 
 O loopback acompanha automaticamente cada regra NAT ativa, sua edição/exclusão
 e a restauração no boot. Não há nova permissão nem endpoint público; continuam

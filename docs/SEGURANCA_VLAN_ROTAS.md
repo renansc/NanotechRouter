@@ -1,4 +1,4 @@
-# Administração, VLANs, rotas e firewall (0.6.3)
+# Administração, VLANs, rotas e firewall (0.7.0)
 
 ## Login e Sistema / Configuração
 
@@ -73,7 +73,8 @@ cadastro não substitui políticas ou rotas da Tailscale.
 ## Firewall e isolamento
 
 A instalação mantém o firewall novo **desativado**, sem inventar regras para
-as redes do operador. Em **Firewall > Regras entre redes**, configurar IPv4
+as redes do operador. A tela de regras exibe um alerta destacado enquanto as
+regras estiverem somente salvas. Em **Firewall > Regras entre redes**, configurar IPv4
 ou CIDR de origem/destino, protocolo, porta ou intervalo e ação. As regras
 podem ser editadas, desabilitadas, excluídas e reordenadas pelas setas.
 
@@ -96,6 +97,15 @@ IPv4 de encaminhamento alcançam também conexões já rastreadas; não existe u
 liberação de ESTABLISHED antes das regras. Não é necessário limpar globalmente
 conntrack. A avaliação não controla tráfego entre hosts que conversam no mesmo
 segmento sem atravessar o roteador: para isso, usar VLANs ou isolamento no switch/AP.
+
+Em **Ativação e filtros**, a opção **Isolar automaticamente LANs e a rede
+diretamente conectada à WAN** bloqueia as duas direções entre essas redes e
+também entre LANs cadastradas. O bloqueio considera somente as sub-redes
+conectadas à WAN; destinos da Internet continuam permitidos e mascarados.
+Serviços ativos em **NAT / Port Forward** recebem exceções limitadas à conexão
+DNAT, protocolo, porta externa, IP e porta interna cadastrados. O acesso direto
+ao restante da rede continua bloqueado. Regras manuais Permitir são avaliadas
+antes do isolamento automático e podem criar outras exceções explícitas.
 
 Regras de encaminhamento não bloqueiam acesso ao próprio painel/gateway (INPUT)
 e não alteram o tráfego originado pelo roteador (OUTPUT). A gestão deve continuar
