@@ -1,6 +1,6 @@
 # Catálogo de funções e acessos
 
-Atualizado para 0.6.2. A instalação independente tem uma conta local **admin**,
+Atualizado para 0.6.3. A instalação independente tem uma conta local **admin**,
 com acesso integral. Todas as páginas exigem sessão válida, exceto login/static.
 Todo POST exige CSRF. A senha inicial precisa ser trocada antes de administrar.
 O core exige `X-Router-Token` em todas as APIs, exceto `/health`.

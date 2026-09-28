@@ -9,8 +9,10 @@ import time
 from contextlib import contextmanager
 from datetime import timedelta
 from pathlib import Path
-from flask import request, session, redirect, url_for, render_template, flash, abort
+from flask import request, session, redirect, url_for, render_template, flash, abort, g
 from werkzeug.security import generate_password_hash, check_password_hash
+
+LOGIN_CSRF_COOKIE = "nanotechrouter_login_csrf"
 
 
 def install(app):
@@ -41,7 +43,18 @@ def install(app):
             finally:
                 db.close()
 
+    def login_csrf_token():
+        token = request.cookies.get(LOGIN_CSRF_COOKIE, "")
+        if len(token) == 64 and all(char in "0123456789abcdef" for char in token):
+            return token
+        if not getattr(g, "login_csrf_token", ""):
+            g.login_csrf_token = secrets.token_hex(32)
+            g.set_login_csrf_cookie = True
+        return g.login_csrf_token
+
     def csrf_token():
+        if request.endpoint == "login":
+            return login_csrf_token()
         if "csrf" not in session:
             session["csrf"] = secrets.token_hex(32)
         return session["csrf"]
@@ -58,15 +71,14 @@ def install(app):
             return
         if request.method not in ("GET", "HEAD", "OPTIONS"):
             token = request.form.get("csrf_token", "") or request.headers.get("X-CSRF-Token", "")
-            if not token or not hmac.compare_digest(token, session.get("csrf", "")):
+            expected = login_csrf_token() if request.endpoint == "login" else session.get("csrf", "")
+            if not token or not hmac.compare_digest(token, expected):
                 if request.endpoint == "login":
                     app.logger.warning(
-                        "Login CSRF renovado: ip=%s host=%s cookie=%s formulario=%s sessao=%s",
+                        "Login CSRF renovado: ip=%s host=%s cookie=%s formulario=%s",
                         request.remote_addr or "unknown", request.host,
-                        bool(request.cookies.get(app.config["SESSION_COOKIE_NAME"])),
-                        bool(token), bool(session.get("csrf")))
+                        bool(request.cookies.get(LOGIN_CSRF_COOKIE)), bool(token))
                     session.clear()
-                    session["csrf"] = secrets.token_hex(32)
                     return redirect(url_for("login", renewed="1"), code=303)
                 abort(400, "Sessão do formulário expirou. Recarregue a página.")
         if request.endpoint == "login":
@@ -80,6 +92,9 @@ def install(app):
 
     @app.after_request
     def security_headers(response):
+        if getattr(g, "set_login_csrf_cookie", False):
+            response.set_cookie(LOGIN_CSRF_COOKIE, g.login_csrf_token, max_age=8 * 60 * 60,
+                                httponly=True, samesite="Lax", path="/login")
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"

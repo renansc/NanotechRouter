@@ -1,4 +1,4 @@
-# Administração, VLANs, rotas e firewall (0.6.2)
+# Administração, VLANs, rotas e firewall (0.6.3)
 
 ## Login e Sistema / Configuração
 
@@ -21,6 +21,9 @@ Se o navegador enviar uma tela de login antiga ou perder o cookie, o servidor
 descarta as credenciais daquele POST, renova a sessão e apresenta o login outra
 vez, em vez de responder com erro genérico 400. O usuário precisa reenviar a
 senha no novo formulário, que continua protegido por CSRF.
+O login usa ainda o cookie separado `nanotechrouter_login_csrf`, estável entre
+abas. Formulários antigos são recusados e recarregados sem alterar o token da
+aba atual; as demais alterações continuam vinculadas à sessão administrativa.
 
 **Sistema / Configuração > Usuários e acessos** apresenta a conta e o catálogo
 administrativo. O perfil admin tem acesso integral aos recursos listados em

@@ -21,9 +21,8 @@ class SecurityTests(unittest.TestCase):
         self.client = web.app.test_client()
 
     def token(self):
-        self.client.get('/login')
-        with self.client.session_transaction() as session:
-            return session['csrf']
+        response = self.client.get('/login')
+        return re.search(rb'name="csrf_token" value="([^"]+)"', response.data).group(1).decode()
 
     def login(self):
         return self.client.post('/login', data={'csrf_token': self.token(), 'username': 'admin', 'password': 'admin'})
@@ -39,10 +38,14 @@ class SecurityTests(unittest.TestCase):
 
     def test_login_uses_router_specific_compatible_cookie(self):
         response = self.client.get('/login')
-        cookie = response.headers.get('Set-Cookie', '')
-        self.assertIn('nanotechrouter_session=', cookie)
+        cookie = '\n'.join(response.headers.getlist('Set-Cookie'))
+        self.assertIn('nanotechrouter_login_csrf=', cookie)
         self.assertIn('HttpOnly', cookie)
         self.assertIn('SameSite=Lax', cookie)
+        response = self.client.post('/login', data={
+            'csrf_token': self.token(), 'username': 'admin', 'password': 'admin'})
+        cookie = '\n'.join(response.headers.getlist('Set-Cookie'))
+        self.assertIn('nanotechrouter_session=', cookie)
 
     def test_default_login_requires_password_change_and_invalidates_other_sessions(self):
         self.assertTrue(self.login().location.endswith('/system'))
@@ -74,16 +77,25 @@ class SecurityTests(unittest.TestCase):
         response = self.client.post('/login', data={
             'csrf_token': 'stale-token', 'username': 'admin', 'password': 'admin'})
         self.assertEqual(response.status_code, 303)
-        with self.client.session_transaction() as session:
-            renewed = session['csrf']
-            self.assertNotIn('admin_version', session)
         page = self.client.get(response.location)
         self.assertEqual(page.status_code, 200)
         self.assertIn(b'sess\xc3\xa3o do formul\xc3\xa1rio foi renovada', page.data)
+        renewed = re.search(rb'name="csrf_token" value="([^"]+)"', page.data).group(1).decode()
+        with self.client.session_transaction() as session:
+            self.assertNotIn('admin_version', session)
         response = self.client.post('/login', data={
             'csrf_token': renewed, 'username': 'admin', 'password': 'admin'})
         self.assertEqual(response.status_code, 302)
         self.assertTrue(response.location.endswith('/system'))
+
+    def test_login_csrf_remains_stable_across_tabs_and_stale_posts(self):
+        current = self.token()
+        self.assertEqual(self.token(), current)
+        stale = self.client.post('/login', data={
+            'csrf_token': '0' * 64, 'username': 'admin', 'password': 'admin'})
+        self.assertEqual(stale.status_code, 303)
+        page = self.client.get(stale.location)
+        self.assertIn(current.encode(), page.data)
 
     def test_login_throttles_across_clients(self):
         token = self.token()

@@ -104,7 +104,7 @@ VLANs, rotas estáticas, firewall, filtros DNS, página de bloqueio,
 Load Balance/failover e Sistema / Configuração possuem
 fluxos funcionais. Os novos bloqueios começam desativados e são configurados
 pelo operador na interface. Consulte [Administração e segurança](docs/SEGURANCA_VLAN_ROTAS.md)
-para uso, persistência, dependências e limites dos filtros. Versão atual: 0.6.2.
+para uso, persistência, dependências e limites dos filtros. Versão atual: 0.6.3.
 
 ## Reservas e NAT (25/09/2026)
 
