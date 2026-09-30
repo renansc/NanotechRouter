@@ -27,6 +27,31 @@ A instância DHCP é reiniciada brevemente ao alterar reservas, pois as linhas
 `dhcp-host` ficam na configuração principal. O dnsmasq não relê essa configuração
 com SIGHUP. Referência: [manual oficial do dnsmasq](https://thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html).
 
+## Roteador Wi-Fi em cascata
+
+Quando uma porta LAN do NanotechRouter alimenta a porta WAN de outro roteador,
+a rede de trânsito entre os dois equipamentos precisa ser diferente da rede
+LAN/Wi-Fi do roteador conectado. Por exemplo:
+
+- NanotechRouter na rede de trânsito: `192.168.19.5/24`;
+- WAN reservada do roteador Wi-Fi: `192.168.19.1`;
+- LAN/Wi-Fi do roteador conectado: `192.168.18.1/24`.
+
+Não configure os dois lados do roteador conectado na mesma sub-rede. Uma WAN
+`192.168.18.1/24` junto de uma LAN `192.168.18.1/24` impede o roteamento/NAT no
+próprio aparelho. O NanotechRouter pode continuar acessando a Internet pela WAN,
+mas os clientes do Wi-Fi não enviam tráfego roteável pela porta de trânsito.
+
+Para corrigir, remova temporariamente a interface dos perfis de firewall que
+protegem alterações de endereço, troque a LAN de trânsito e sua faixa DHCP,
+recrie a reserva da WAN na nova rede e restaure os mesmos perfis. Renove o DHCP
+do roteador conectado, ciclando o enlace se necessário. Ao final, confirme o
+lease, a vizinhança com `ip neigh`, os contadores de FORWARD/NAT e execute
+`nanotechrouter-safe-restore.service` para validar a persistência de boot.
+
+Reservas, leases, endereços reais e backups continuam dados locais da instalação
+e não devem ser adicionados ao Git.
+
 ## Cadastro e edição de NAT
 
 **NAT / Port Forward > Editar** carrega a regra existente no formulário. Salvar

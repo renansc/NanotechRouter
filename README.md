@@ -130,6 +130,11 @@ O NAT também oferece loopback: clientes LAN podem usar a porta externa no IP
 WAN ou no gateway LAN do roteador. O retorno na mesma sub-rede é traduzido
 para manter a conexão. As regras de isolamento do firewall continuam valendo.
 
+Em instalações com outro roteador ligado em cascata, a rede da WAN desse
+equipamento deve ser diferente de sua rede LAN/Wi-Fi. O procedimento de
+diagnóstico, migração segura e validação persistente está em
+[Rede, NAT e DHCP](docs/REDE_NAT_DHCP.md#roteador-wi-fi-em-cascata).
+
 ## Página de bloqueio e Load Balance (0.6.0)
 
 Domínios bloqueados pelo filtro DNS podem apontar para uma página local em
