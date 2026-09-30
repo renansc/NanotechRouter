@@ -76,6 +76,12 @@ O serviço `nanotechrouter-safe-restore.service` reaplica LAN/DHCP/NAT/QoS no bo
 a partir dos arquivos locais. Não restaura banco nem importa dados de backups.
 Sua execução altera a rede e não faz parte dos testes nem do envio ao Git.
 
+A criação/restauração de VLANs ativa primeiro a porta física cadastrada.
+Isso evita que um boot com a LAN desligada interrompa a recuperação de IP e
+DHCP com `Network is down`, mesmo quando a WAN está funcionando. A validação
+inclui porta sem cabo e reconexão em rede isolada; detalhes em
+[Administração e segurança](docs/SEGURANCA_VLAN_ROTAS.md#vlans).
+
 ## Testes sem alterar o roteador
 
 ```bash

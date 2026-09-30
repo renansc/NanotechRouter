@@ -414,6 +414,7 @@ class Management:
                'name': str(data.get('name', '')).strip()[:80] or name}
         self.checked(['ip', 'link', 'add', 'link', parent, 'name', name, 'type', 'vlan', 'id', str(tag)])
         try:
+            self.checked(['ip', 'link', 'set', 'dev', parent, 'up'])
             self.checked(['ip', 'link', 'set', 'dev', name, 'up'])
             self.save('vlans', items + [row])
         except Exception:
@@ -446,6 +447,9 @@ class Management:
                 self.checked(['ip', 'link', 'add', 'link', row['parent'], 'name', row['interface'], 'type', 'vlan', 'id', str(row['tag'])])
             else:
                 self.verify_vlan(row)
+            # VLAN activation fails with ENETDOWN while its physical parent is
+            # administratively down, aborting boot before LAN/DHCP restoration.
+            self.checked(['ip', 'link', 'set', 'dev', row['parent'], 'up'])
             self.checked(['ip', 'link', 'set', 'dev', row['interface'], 'up'])
 
     def route_args(self, row, operation):

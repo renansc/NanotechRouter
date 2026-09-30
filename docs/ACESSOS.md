@@ -82,7 +82,7 @@ Core | token interno; não acessível diretamente pela rede
 | web | POST | `/loadbalance/check` | Verificar os links imediatamente |
 | core | GET | `/api/system/info` | Estado e versão |
 | core | POST | `/api/system/reboot` | Agendar reinício confirmado |
-| core | POST | `/api/system/restore-links` | Recriar VLANs cadastradas no boot |
+| core | POST | `/api/system/restore-links` | Recriar VLANs cadastradas no boot, ativando a porta física antes da VLAN |
 | core | GET | `/api/vlans`, `/api/routes`, `/api/firewall` | Cadastros, filtros, listas e estado |
 | core | POST | `/api/vlans/save`, `/api/vlans/delete` | Criar/excluir VLAN, verificar dependências |
 | core | POST | `/api/routes/save`, `/api/routes/delete` | Criar/editar/ativar/excluir rota |
@@ -107,3 +107,10 @@ página atual, navegação por teclado e foco contido enquanto aberto. As tabela
 usam fichas em telas pequenas. Esta adaptação é visual: não cria recursos,
 endpoints de negócio ou permissões; sessão, CSRF e token continuam valendo.
 CSS/JavaScript de apresentação são servidos pela rota estática pública existente.
+
+A criação de VLAN e sua restauração ativam a porta física cadastrada antes da
+subinterface, inclusive sem cabo conectado. O catálogo em Sistema / Configuração
+identifica esse comportamento em **VLANs / Ativação da porta física**. Continuam
+exigidos admin/CSRF no painel e token interno no core; a correção não cria
+endpoint, usuário ou concessão. Testes cobrem token ausente/incorreto e válido,
+além da recusa de uma interface existente que não corresponda à VLAN salva.

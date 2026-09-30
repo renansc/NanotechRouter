@@ -57,6 +57,33 @@ outra VLAN; não há renumeração automática de redes ativas. Cadastros ficam 
 `data/vlans.json`. A restauração de boot cria/verifica as VLANs antes de aplicar
 endereços LAN e DHCP. Não altera VLANs criadas por outros programas.
 
+Na criação e na restauração, a porta física cadastrada é ativada antes da VLAN.
+Isso não depende de cabo conectado e preserva seus endereços, rotas e DHCP.
+Uma VLAN já existente é conferida antes de ativar sua porta; divergências de
+porta, tipo ou tag continuam bloqueando a operação. A autorização permanece
+admin/CSRF no painel e token interno no core.
+
+O incidente de setembro de 2026 foi reproduzido com a porta física LAN ainda
+administrativamente desligada no boot. O Linux recusava ativar a VLAN com
+`RTNETLINK answers: Network is down`, retornando HTTP 500 em `restore-links`.
+O serviço de restauração encerrava antes de recuperar IP/DHCP da LAN, enquanto
+a WAN configurada pelo sistema continuava funcionando. Ativar a porta antes da
+VLAN corrige a dependência tanto na criação quanto na restauração. Falhas reais
+continuam sendo reportadas; o fluxo não ignora erros para anunciar sucesso.
+
+`tests/test_management_security.py` cobre a ordem no boot, preservação do
+cadastro, falha da porta, VLAN divergente e autorização do endpoint.
+`tests/check_management_native.py` reproduz a criação com porta desligada,
+restauração com VLAN existente/ausente, ausência de carrier, reaplicação e
+reconexão com tráfego TCP, sempre em namespaces isolados.
+
+Validação da correção: 57 testes unitários passaram. O checker nativo passou
+nos cenários acima e nas regressões de firewall, rotas e interceptação DNS.
+No deploy afetado, levantar a porta física e executar o serviço existente
+recuperou IP, DHCP, NAT e encaminhamento; o DHCP confirmou a concessão ao
+equipamento conectado. Oscilações de carrier são uma condição física separada
+e não são corrigidas por reaplicar a configuração de rede.
+
 ## Rotas estáticas IPv4
 
 **Rotas** permite criar, editar, ativar/desativar e excluir destino CIDR, gateway,

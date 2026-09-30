@@ -119,6 +119,17 @@ class SecurityTests(unittest.TestCase):
                 self.assertEqual(client.get(path, headers={'X-Router-Token': 'wrong'}).status_code, 401)
             self.assertEqual(client.get('/health').status_code, 200)
 
+    def test_vlan_restore_requires_internal_token_before_network_changes(self):
+        with patch.dict(os.environ, {'ROUTER_API_TOKEN': 'synthetic-token'}), \
+                patch.object(core.management, 'restore_vlans') as restore:
+            client = core.app.test_client()
+            for headers in ({}, {'X-Router-Token': 'wrong'}):
+                self.assertEqual(client.post('/api/system/restore-links', headers=headers).status_code, 401)
+            restore.assert_not_called()
+            self.assertEqual(client.post('/api/system/restore-links',
+                             headers={'X-Router-Token': 'synthetic-token'}).status_code, 200)
+            restore.assert_called_once()
+
 
 class PolicyTests(unittest.TestCase):
     def setUp(self):
@@ -137,6 +148,50 @@ class PolicyTests(unittest.TestCase):
     def rule(self, **changes):
         return {'name': 'Block network', 'source': '192.0.2.0/24', 'destination': '198.51.100.0/24',
                 'protocol': 'any', 'action': 'drop', 'enabled': True, **changes}
+
+    def test_restore_vlan_activates_parent_before_child_on_cold_and_warm_boot(self):
+        row = {'id': 'v1', 'interface': 'eth1.20', 'parent': 'eth1', 'tag': 20}
+        self.m.save('vlans', [row])
+        for exists in (False, True):
+            with self.subTest(existing_vlan=exists):
+                parent_up = False
+
+                def command(args):
+                    nonlocal parent_up
+                    if args == ['ip', '-j', '-d', 'link', 'show', 'dev', 'eth1.20']:
+                        return {**OK, 'stdout': json.dumps([{'link': 'eth1', 'linkinfo': {
+                            'info_kind': 'vlan', 'info_data': {'id': 20}}}])}
+                    if args == ['ip', 'link', 'set', 'dev', 'eth1', 'up']:
+                        parent_up = True
+                    if args == ['ip', 'link', 'set', 'dev', 'eth1.20', 'up'] and not parent_up:
+                        return {**OK, 'success': False, 'stderr': 'RTNETLINK answers: Network is down'}
+                    return OK
+
+                self.run.side_effect = command
+                with patch.object(core, 'interface_exists', return_value=exists):
+                    response = self.client.post('/api/system/restore-links')
+                self.assertEqual(response.status_code, 200, response.json)
+                self.assertTrue(parent_up)
+                self.assertEqual(self.m.load('vlans', []), [row])
+
+    def test_restore_rejects_foreign_vlan_before_activating_parent(self):
+        self.m.save('vlans', [{'id': 'v1', 'interface': 'eth1.20', 'parent': 'eth1', 'tag': 20}])
+        self.run.return_value = {**OK, 'stdout': json.dumps([{'link': 'eth0', 'linkinfo': {
+            'info_kind': 'vlan', 'info_data': {'id': 20}}}])}
+        with patch.object(core, 'interface_exists', return_value=True):
+            self.assertEqual(self.client.post('/api/system/restore-links').status_code, 500)
+        self.assertFalse(any(call.args[0][:3] == ['ip', 'link', 'set'] for call in self.run.call_args_list))
+
+    def test_restore_reports_parent_activation_failure(self):
+        self.m.save('vlans', [{'id': 'v1', 'interface': 'eth1.20', 'parent': 'eth1', 'tag': 20}])
+        self.run.side_effect = lambda args: ({**OK, 'success': False, 'stderr': 'Parent failed'}
+            if args == ['ip', 'link', 'set', 'dev', 'eth1', 'up'] else OK)
+        with patch.object(core, 'interface_exists', return_value=False):
+            response = self.client.post('/api/system/restore-links')
+        self.assertEqual(response.status_code, 500)
+        self.assertIn('Parent failed', response.json['message'])
+        self.assertFalse(any(call.args[0] == ['ip', 'link', 'set', 'dev', 'eth1.20', 'up']
+                             for call in self.run.call_args_list))
 
     def test_firewall_crud_order_and_disabled_default(self):
         self.assertFalse(self.m.policy()['enabled'])

@@ -121,15 +121,34 @@ try:
     print('PASS: native route add/edit/restore/delete')
 
     # A veth stands in for the physical NIC; only the hardware validation is mocked.
+    run('ip', 'link', 'set', 'dev', 'test0', 'down')
     original_exists = Path.exists
     with patch.object(Path, 'exists', lambda p: True if str(p) == '/sys/class/net/test0/device' else original_exists(p)):
         m.vlan_create({'parent': 'test0', 'tag': 20, 'name': 'Synthetic'})
     vlan = m.load('vlans', [])[0]
     m.verify_vlan(vlan)
+    # Reproduce boot with an existing VLAN and a parent still down.
+    run('ip', 'link', 'set', 'dev', 'test0.20', 'down')
+    run('ip', 'link', 'set', 'dev', 'test0', 'down')
     m.restore_vlans()
+    for interface in ('test0', 'test0.20'):
+        assert 'UP' in json.loads(run('ip', '-j', 'link', 'show', 'dev', interface))[0]['flags']
+    # Cold boot: VLAN absent, physical port down, cable without carrier.
+    run('ip', 'link', 'delete', 'dev', 'test0.20')
+    run('ip', 'link', 'set', 'dev', 'test0', 'down')
+    ns(0, 'ip', 'link', 'set', 'dev', 'peer0', 'down')
+    m.restore_vlans()
+    m.restore_vlans()
+    for interface in ('test0', 'test0.20'):
+        assert 'UP' in json.loads(run('ip', '-j', 'link', 'show', 'dev', interface))[0]['flags']
+    ns(0, 'ip', 'link', 'set', 'dev', 'peer0', 'up')
+    # Bringing the client NIC down removes its default route; DHCP normally
+    # renews it on reconnection. This synthetic client uses a static route.
+    ns(0, 'ip', 'route', 'replace', 'default', 'via', '192.0.2.1')
+    assert connection(0, '198.51.100.2', 8081), 'LAN did not recover after cable reconnection'
     m.vlan_delete(vlan['id'])
     assert not core.interface_exists('test0.20')
-    print('PASS: native VLAN create/verify/restore/delete')
+    print('PASS: native VLAN create/restore with parent down, no carrier, repeated restore and LAN reconnection')
 
     # Deterministic DNS upstream, completely local to this namespace.
     run('ip', 'addr', 'add', '1.1.1.1/32', 'dev', 'lo')
