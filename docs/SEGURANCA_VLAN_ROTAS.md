@@ -203,6 +203,26 @@ IDS/IPS ou filtragem de caminhos HTTPS nesta versão.
 
 ## Persistência e validação
 
+A unidade `nanotechrouter-safe-restore.service` inicia depois de
+`docker.service`, além da rede e do core. A restauração depende da chain
+`DOCKER-USER` criada pelo Docker. Sem essa ordem, o boot de 30/09/2026
+recuperava o IP da LAN e iniciava DHCP, mas falhava em `reapply` antes de o
+Docker estar pronto. O systemd encerrava também o dnsmasq pertencente à
+unidade que falhou; clientes repetiam pedidos DHCP sem resposta. Isso explica
+a falha mesmo com WAN funcionando e após remover VLANs.
+
+A unidade solicita a inicialização do Docker e repete falhas transitórias
+a cada cinco segundos, limitando cinco partidas em 120 segundos. Erros
+persistentes continuam visíveis no status do serviço. A implantação precisa
+atualizar `/etc/systemd/system/nanotechrouter-safe-restore.service` e executar
+`systemctl daemon-reload`. Não reiniciar Docker nem o host para aplicar a unidade.
+
+`sudo python3 tests/check_boot_order_native.py` valida a unidade com serviços
+systemd temporários: Docker sintético atrasado, primeira aplicação com erro
+transitório e segunda bem-sucedida. Confere a ordem, uma única repetição e
+estado ativo, removendo os serviços ao terminar. Não altera rede, Docker ou
+serviços reais do roteador. O teste passou no host do incidente.
+
 O utilitário existente `deploy/nanotechrouter-safe-restore` autentica chamadas ao
 core e restaura VLANs, LAN/DHCP, regras locais de roteamento, NAT/QoS, rotas
 estáticas e firewall/DNS. Não restaura banco nem importa backups. A configuração

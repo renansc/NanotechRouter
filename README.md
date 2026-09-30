@@ -82,6 +82,12 @@ DHCP com `Network is down`, mesmo quando a WAN está funcionando. A validação
 inclui porta sem cabo e reconexão em rede isolada; detalhes em
 [Administração e segurança](docs/SEGURANCA_VLAN_ROTAS.md#vlans).
 
+A unidade de restauração também aguarda o Docker terminar de iniciar, pois
+o encaminhamento usa `DOCKER-USER`. Falhas transitórias são repetidas a cada
+cinco segundos, limitadas a cinco partidas em dois minutos. Ao atualizar essa
+unidade, instalar a cópia de `deploy/systemd/` em `/etc/systemd/system/` e
+executar `systemctl daemon-reload`; atualizar apenas o Python não muda o boot.
+
 ## Testes sem alterar o roteador
 
 ```bash

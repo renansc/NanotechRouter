@@ -56,7 +56,7 @@ Core | token interno; não acessível diretamente pela rede
 | core | GET | `/api/bandwidth` | `nr_bw_list` |
 | core | POST | `/api/bandwidth/rule` | `nr_bw_save` |
 | core | POST | `/api/bandwidth/delete` | `nr_bw_delete` |
-| core | POST | `/api/system/reapply` | `nr_reapply` |
+| core | POST | `/api/system/reapply` | `nr_reapply`; recuperação no boot após inicialização do Docker |
 | core | GET | `/health` | `health` |
 | core | GET | `/api/status` | `status` |
 | core | GET | `/api/interfaces` | `interfaces` |
@@ -114,3 +114,8 @@ identifica esse comportamento em **VLANs / Ativação da porta física**. Contin
 exigidos admin/CSRF no painel e token interno no core; a correção não cria
 endpoint, usuário ou concessão. Testes cobrem token ausente/incorreto e válido,
 além da recusa de uma interface existente que não corresponda à VLAN salva.
+
+A recuperação de LAN/DHCP/NAT no boot é uma operação interna autenticada com
+o mesmo token do core. A unidade aguarda o Docker e repete falhas transitórias
+com limite; não cria botão, rota pública, usuário ou permissão. Continua dentro
+dos recursos Interfaces/WAN/LAN, DHCP e NAT do catálogo administrativo.

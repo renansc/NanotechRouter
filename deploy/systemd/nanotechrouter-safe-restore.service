@@ -1,13 +1,17 @@
 [Unit]
 Description=NanotechRouter - restauracao segura LAN DHCP NAT QoS
-After=network-online.target linux-router-core.service
-Wants=network-online.target
+After=network-online.target linux-router-core.service docker.service
+Wants=network-online.target docker.service
 Requires=linux-router-core.service
+StartLimitIntervalSec=120
+StartLimitBurst=5
 
 [Service]
 Type=oneshot
 ExecStart=/usr/local/sbin/nanotechrouter-safe-restore
 RemainAfterExit=yes
+Restart=on-failure
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
