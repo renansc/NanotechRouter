@@ -138,8 +138,8 @@ def install(app):
             password = request.form.get("new_password", "")
             if not check_password_hash(admin["password"], request.form.get("current_password", "")):
                 flash("Senha atual incorreta.")
-            elif len(password) < 10 or len(password) > 128 or password != request.form.get("confirm_password"):
-                flash("Informe e confirme uma senha de 10 a 128 caracteres.")
+            elif len(password) < 9 or len(password) > 128 or password != request.form.get("confirm_password"):
+                flash("Informe e confirme uma senha de 9 a 128 caracteres.")
             else:
                 version = secrets.token_hex(24)
                 db.execute("UPDATE admin SET password=?, version=?, initial=0 WHERE id=1", (generate_password_hash(password), version))
