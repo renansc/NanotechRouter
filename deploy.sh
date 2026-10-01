@@ -4,6 +4,13 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
+EXPECTED_DIR="/srv/nanotechsoft/router"
+if [[ "$ROOT_DIR" != "$EXPECTED_DIR" ]]; then
+  echo "ERRO: NanotechRouter deve ser implantado em $EXPECTED_DIR"
+  echo "Diretório atual: $ROOT_DIR"
+  exit 1
+fi
+
 if ! command -v docker >/dev/null 2>&1; then
   echo "ERRO: Docker não encontrado."
   exit 1
