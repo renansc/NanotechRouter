@@ -16,7 +16,7 @@ services:
       - ROUTER_BASE=/srv/nanotechsoft/router
       - ROUTER_API_TOKEN=${ROUTER_API_TOKEN:?Defina ROUTER_API_TOKEN no arquivo .env}
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:5050/api/interfaces >/dev/null || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:5050/health >/dev/null || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 5
