@@ -5,9 +5,9 @@
 {% if request.args.get('tab','password') == 'password' %}
 <div class="card p-4" style="max-width:650px"><h4>Trocar senha de admin</h4><p class="text-muted">Altera a senha deste painel. O acesso SSH do Linux usa credenciais próprias.</p><form method="post" action="/system/password">{{ csrf() }}
 <label class="form-label">Senha atual</label><input class="form-control mb-3" type="password" name="current_password" autocomplete="current-password" required>
-<label class="form-label">Nova senha</label><input class="form-control mb-3" type="password" name="new_password" minlength="10" maxlength="128" autocomplete="new-password" required>
-<label class="form-label">Confirmar nova senha</label><input class="form-control mb-3" type="password" name="confirm_password" minlength="10" maxlength="128" autocomplete="new-password" required>
-<p class="small text-muted">Use pelo menos 10 caracteres. A alteração encerra as outras sessões.</p><button class="btn btn-primary">Alterar senha</button></form></div>
+<label class="form-label">Nova senha</label><input class="form-control mb-3" type="password" name="new_password" minlength="9" maxlength="128" autocomplete="new-password" required>
+<label class="form-label">Confirmar nova senha</label><input class="form-control mb-3" type="password" name="confirm_password" minlength="9" maxlength="128" autocomplete="new-password" required>
+<p class="small text-muted">Use pelo menos 9 caracteres. A alteração encerra as outras sessões.</p><button class="btn btn-primary">Alterar senha</button></form></div>
 {% elif request.args.get('tab') == 'access' %}
 <div class="card p-4"><h4>Usuários e acessos</h4><p><strong>admin</strong> · Administrador local · Acesso integral</p><p>Esta instalação independente possui uma conta administrativa. Todas as páginas e alterações exigem login; o core exige uma credencial interna da aplicação.</p>
 <table class="table"><thead><tr><th>Recurso</th><th>Permissões de admin</th></tr></thead><tbody>{% for resource in ['Interfaces / WAN / LAN', 'DHCP / Reservas', 'Dispositivos / Apelidos', 'NAT / Port Forward / Loopback', 'Controle de banda', 'VLANs / Ativação da porta física', 'Rotas estáticas', 'Firewall / Domínios / Categorias / Página de bloqueio', 'Balanceamento de links / Failover', 'Sistema / Senha / Reinício'] %}<tr><td>{{ resource }}</td><td>Consultar e administrar</td></tr>{% endfor %}</tbody></table></div>
