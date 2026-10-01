@@ -12,6 +12,11 @@ from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
+
+@app.get("/health")
+def health():
+    return jsonify({"status": "ok"}), 200
+
 BASE = os.environ.get("ROUTER_BASE", "/srv/nanotechsoft/router")
 DATA = BASE + "/data"
 CONFIG = BASE + "/config"
