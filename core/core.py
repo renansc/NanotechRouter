@@ -12,7 +12,7 @@ from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
-BASE = os.environ.get("ROUTER_BASE", "/srv/nanotechsoft")
+BASE = os.environ.get("ROUTER_BASE", "/srv/nanotechsoft/router")
 DATA = BASE + "/data"
 CONFIG = BASE + "/config"
 
